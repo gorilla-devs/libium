@@ -1,0 +1,23 @@
+[package]
+name = "libium"
+version = "0.1.0"
+edition = "2021"
+authors = ["theRookieCoder <ileshkt@gmail.com>"]
+description = "Libium is a library made for Ferium and Gerium. It manages Minecraft mods from Modrinth, CurseForge, and Github Releases"
+repository = "https://github.com/theRookieCoder/libium"
+readme = "README.md"
+license = "MPL-2.0"
+keywords = [
+	"minecraft",
+	"mod-manager",
+	"modrinth",
+	"curseforge",
+	"github-releases"
+]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+clap = { version = "3", features = ["derive"] }
+lazy_static = "1"
+serde_json = "1"
+home = "0"
