@@ -1,10 +1,10 @@
+pub mod structs;
+
 use std::{
     fs::{create_dir_all, File, OpenOptions},
     io::{Result, Seek, Write},
     path::PathBuf,
 };
-
-pub mod structs;
 
 /// Get the config file's path
 pub fn config_file_path() -> PathBuf {

@@ -1,4 +1,6 @@
 pub mod config;
+pub mod launchermeta;
+pub mod misc;
 
 // Get the home directory when the program starts
 lazy_static::lazy_static! {
