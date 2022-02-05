@@ -4,7 +4,7 @@ use clap::ArgEnum;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
     /// The index of the active profile
     pub active_profile: usize,
@@ -12,7 +12,7 @@ pub struct Config {
     pub profiles: Vec<Profile>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Profile {
     /// The profile's name
     pub name: String,

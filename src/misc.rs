@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 // macOS can only use a sync file picker
 #[cfg(target_os = "macos")]
-#[allow(clippy::unused_async)] // We need the same pattern on all OSs
+#[allow(clippy::unused_async)] // We need the same function signature on all OSs
 /// Use the file picker to pick a file, defaulting to `path`
 pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
     rfd::FileDialog::new().set_directory(path).pick_folder()
@@ -25,7 +25,8 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
 /// Example:
 /// ```rust
 /// # use libium::{launchermeta, misc::get_latest_mc_versions};
-/// # tokio_test::block_on(async {
+/// # #[tokio::main]
+/// # async fn main() {
 /// assert_eq!(
 ///     get_latest_mc_versions(
 /// 		6,
@@ -41,7 +42,7 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
 ///         "1.13.2".to_string()
 ///     ]
 /// );
-/// # })
+/// # }
 /// ```
 pub fn get_latest_mc_versions(
     count: usize,

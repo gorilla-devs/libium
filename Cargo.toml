@@ -19,7 +19,7 @@ keywords = [
 reqwest = { version = "0", default-features = false, features = ["rustls-tls", "json"] }
 serde = { version = "1", features = ["derive"] }
 clap = { version = "3", features = ["derive"] }
-flutter_rust_bridge = "1"
+tokio = { version = "1", features = ["fs"] }
 lazy_static = "1"
 serde_json = "1"
 semver = "1"
@@ -27,4 +27,4 @@ home = "0"
 rfd = "0"
 
 [dev-dependencies]
-tokio-test = "0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
