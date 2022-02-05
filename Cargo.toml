@@ -1,9 +1,9 @@
 [package]
 name = "libium"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["theRookieCoder <ileshkt@gmail.com>"]
-description = "Libium is a library made for Ferium and Gerium. It manages Minecraft mods from Modrinth, CurseForge, and Github Releases"
+description = "Libium is the backend of Ferium. It helps manage Minecraft mods from Modrinth, CurseForge, and Github Releases"
 repository = "https://github.com/theRookieCoder/libium"
 readme = "README.md"
 license = "MPL-2.0"
