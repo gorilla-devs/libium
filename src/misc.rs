@@ -2,7 +2,7 @@ use crate::{launchermeta, HOME};
 use std::path::PathBuf;
 
 // macOS can only use a sync file picker
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "gui"))]
 #[allow(clippy::unused_async)] // We need the same function signature on all OSs
 /// Use the file picker to pick a file, defaulting to `path`
 pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
@@ -10,7 +10,7 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
 }
 
 // Other OSs can use the async version
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), feature = "gui"))]
 /// Use the file picker to pick a file, defaulting to `path`
 pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
     rfd::AsyncFileDialog::new()
@@ -18,6 +18,17 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
         .pick_folder()
         .await
         .map(|handle| handle.path().into())
+}
+
+#[cfg(not(feature = "gui"))]
+pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
+    use dialoguer::{theme::ColorfulTheme, Input};
+
+    let res = Input::with_theme(&ColorfulTheme::default())
+        .default(path.to_str()?.to_string())
+        .interact()
+        .ok()?;
+    Some(res.into())
 }
 
 /// Get a maximum of `count` number of the latest versions of Minecraft from the `version_manifest` provided
