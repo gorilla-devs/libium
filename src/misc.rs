@@ -1,4 +1,5 @@
-use crate::{launchermeta, HOME};
+use crate::HOME;
+use ferinth::Ferinth;
 use std::path::PathBuf;
 
 // macOS can only use a sync file picker
@@ -33,58 +34,31 @@ pub async fn pick_folder(_: &PathBuf) -> Option<PathBuf> {
 }
 
 /// Get a maximum of `count` number of the latest versions of Minecraft from the `version_manifest` provided
-pub fn get_latest_mc_versions(
-    count: usize,
-    version_manifest: launchermeta::structs::VersionManifestV2,
-) -> Result<Vec<String>, semver::Error> {
-    let versions = version_manifest.versions;
-    let mut versions_to_display: Vec<String> = Vec::new();
-    let mut major_versions_added: Vec<String> = Vec::new();
+pub async fn get_latest_mc_versions(mut count: usize) -> Result<Vec<String>, ferinth::Error> {
+    let versions = Ferinth::new().list_game_versions().await?;
+    let mut major_versions = Vec::new();
 
     for version in versions {
-        if versions_to_display.len() >= count {
+        if count == 0 {
             break;
         }
-        let major_version = if matches!(
-            version.version_type,
-            launchermeta::structs::VersionType::Release
-        ) {
-            remove_semver_patch(&version.id)?
-        } else {
-            continue;
-        };
-
-        // If version is a release and it hasn't already been added
-        if matches!(
-            version.version_type,
-            launchermeta::structs::VersionType::Release
-        ) && !major_versions_added.contains(&major_version)
-        {
-            versions_to_display.push(version.id);
-            major_versions_added.push(major_version);
+        if version.major {
+            major_versions.push(version.version);
+            count -= 1;
         }
     }
 
-    Ok(versions_to_display)
+    Ok(major_versions)
 }
 
 /// Remove the given semver `input`'s patch version
-///
-/// ```rust
-/// # use libium::misc::remove_semver_patch;
-/// assert!(remove_semver_patch("1.7.10")? == "1.7".to_string());
-/// assert!(remove_semver_patch("1.14.4")? == "1.14".to_string());
-/// // Versions already without a minor version are preserved
-/// assert!(remove_semver_patch("1.18")? == "1.18".to_string());
-/// # Ok::<(), semver::Error>(())
-/// ```
 pub fn remove_semver_patch(input: &str) -> Result<String, semver::Error> {
     // If the input string contains only one period, it already doesn't have the patch version
     if input.matches('.').count() == 1 {
         // So directly return the string
         Ok(input.into())
     } else {
-        // Or else parse the string in to a semver version struct
+        // Or else parse the string
         let version = semver::Version::parse(input)?;
         // And return the major and minor versions
         Ok(format!("{}.{}", version.major, version.minor))

@@ -1,5 +1,3 @@
-//! Contains structure definitions for the configuration file0
-
 use clap::ArgEnum;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -27,7 +25,7 @@ pub struct Profile {
 }
 
 /// A mod, which can be from 3 different sources
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum Mod {
     CurseForgeProject {
         name: String,
@@ -53,7 +51,7 @@ impl Mod {
     }
 }
 
-#[derive(ArgEnum, Clone, Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ArgEnum)]
 pub enum ModLoaders {
     Fabric,
     Forge,
