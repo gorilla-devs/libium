@@ -22,12 +22,35 @@ pub struct Profile {
     pub game_version: String,
     /// Check if mod JARs are compatible with this mod loader
     pub mod_loader: ModLoaders,
-    /// Project IDs of CurseForge mods
-    pub curse_projects: Vec<i32>,
-    /// Mod IDs of Modrinth mods
-    pub modrinth_mods: Vec<String>,
-    /// Full names of GitHub repositories
-    pub github_repos: Vec<(String, String)>,
+    /// A list of all the mods configured
+    pub mods: Vec<Mod>,
+}
+
+/// A mod, which can be from 3 different sources
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum Mod {
+    CurseForgeProject {
+        name: String,
+        project_id: i32,
+    },
+    ModrinthProject {
+        name: String,
+        project_id: String,
+    },
+    GitHubRepository {
+        name: String,
+        full_name: (String, String),
+    },
+}
+
+impl Mod {
+    pub fn name(&self) -> &str {
+        match self {
+            Mod::CurseForgeProject { name, .. } => name,
+            Mod::ModrinthProject { name, .. } => name,
+            Mod::GitHubRepository { name, .. } => name,
+        }
+    }
 }
 
 #[derive(ArgEnum, Clone, Deserialize, Serialize, Debug)]

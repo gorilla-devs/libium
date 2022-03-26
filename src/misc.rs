@@ -32,29 +32,6 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
 }
 
 /// Get a maximum of `count` number of the latest versions of Minecraft from the `version_manifest` provided
-///
-/// Example:
-/// ```rust
-/// # use libium::{launchermeta, misc::get_latest_mc_versions};
-/// # #[tokio::main]
-/// # async fn main() {
-/// assert_eq!(
-///     get_latest_mc_versions(
-/// 		6,
-/// 		launchermeta::get_version_manifest().await.unwrap()
-/// 	).unwrap(),
-///     // This will obviously change as new Minecraft updates get released
-///     vec![
-///         "1.18.1".to_string(),
-///         "1.17.1".to_string(),
-///         "1.16.5".to_string(),
-///         "1.15.2".to_string(),
-///         "1.14.4".to_string(),
-///         "1.13.2".to_string()
-///     ]
-/// );
-/// # }
-/// ```
 pub fn get_latest_mc_versions(
     count: usize,
     version_manifest: launchermeta::structs::VersionManifestV2,

@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 authors = ["theRookieCoder <ileshkt@gmail.com>"]
 description = "Libium is the backend of Ferium. It helps manage Minecraft mods from Modrinth, CurseForge, and Github Releases"
@@ -23,12 +23,12 @@ reqwest = { version = "0", default-features = false, features = ["rustls-tls", "
 serde = { version = "1", features = ["derive"] }
 clap = { version = "3", features = ["derive"] }
 tokio = { version = "1", features = ["fs"] }
+rfd = { version = "0", optional = true }
 lazy_static = "1"
 serde_json = "1"
+dialoguer = "0"
 semver = "1"
 home = "0"
-rfd = { version = "0", optional = true }
-dialoguer = "0"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
