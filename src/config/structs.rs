@@ -46,9 +46,9 @@ pub enum Mod {
 impl Mod {
     pub fn name(&self) -> &str {
         match self {
-            Mod::CurseForgeProject { name, .. } => name,
-            Mod::ModrinthProject { name, .. } => name,
-            Mod::GitHubRepository { name, .. } => name,
+            Mod::CurseForgeProject { name, .. }
+            | Mod::ModrinthProject { name, .. }
+            | Mod::GitHubRepository { name, .. } => name,
         }
     }
 }

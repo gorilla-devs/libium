@@ -1,8 +1,8 @@
 [package]
 name = "libium"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
-authors = ["theRookieCoder <ileshkt@gmail.com>"]
+authors = ["Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>", "Daniel Hauck (SolidTux)"]
 description = "Libium is the backend of Ferium. It helps manage Minecraft mods from Modrinth, CurseForge, and Github Releases"
 repository = "https://github.com/theRookieCoder/libium"
 readme = "README.md"

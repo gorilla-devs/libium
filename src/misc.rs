@@ -1,9 +1,10 @@
 use crate::{launchermeta, HOME};
+use dialoguer::{theme::ColorfulTheme, Input};
 use std::path::PathBuf;
 
 // macOS can only use a sync file picker
 #[cfg(all(target_os = "macos", feature = "gui"))]
-#[allow(clippy::unused_async)] // We need the same function signature on all OSs
+#[allow(clippy::unused_async)]
 /// Use the file picker to pick a file, defaulting to `path`
 pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
     rfd::FileDialog::new().set_directory(path).pick_folder()
@@ -21,14 +22,13 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
 }
 
 #[cfg(not(feature = "gui"))]
+#[allow(clippy::unused_async)]
 pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
-    use dialoguer::{theme::ColorfulTheme, Input};
-
-    let res = Input::with_theme(&ColorfulTheme::default())
-        .default(path.to_str()?.to_string())
+    let input = Input::with_theme(&ColorfulTheme::default())
+        .default(path.display().to_string())
         .interact()
         .ok()?;
-    Some(res.into())
+    Some(input.into())
 }
 
 /// Get a maximum of `count` number of the latest versions of Minecraft from the `version_manifest` provided
@@ -79,7 +79,7 @@ pub fn get_latest_mc_versions(
 /// ```
 pub fn remove_semver_patch(input: &str) -> Result<String, semver::Error> {
     // If the input string contains only one period, it already doesn't have the patch version
-    if input.matches(".").collect::<Vec<_>>().len() == 1 {
+    if input.matches('.').count() == 1 {
         // So directly return the string
         Ok(input.into())
     } else {

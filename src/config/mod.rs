@@ -12,7 +12,6 @@ pub fn config_file_path() -> PathBuf {
         .join(".config")
         .join("ferium")
         .join("config.json")
-        .into()
 }
 
 /// Get the config file. If it doesn't exist, an empty config will be created and returned
