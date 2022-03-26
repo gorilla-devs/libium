@@ -1,5 +1,4 @@
 use crate::{launchermeta, HOME};
-use dialoguer::{theme::ColorfulTheme, Input};
 use std::path::PathBuf;
 
 // macOS can only use a sync file picker
@@ -23,9 +22,11 @@ pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
 
 #[cfg(not(feature = "gui"))]
 #[allow(clippy::unused_async)]
-pub async fn pick_folder(path: &PathBuf) -> Option<PathBuf> {
-    let input = Input::with_theme(&ColorfulTheme::default())
-        .default(path.display().to_string())
+pub async fn pick_folder(_: &PathBuf) -> Option<PathBuf> {
+    use dialoguer::{theme::ColorfulTheme, Input};
+
+    let input: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("Pick a mod output directory")
         .interact()
         .ok()?;
     Some(input.into())
