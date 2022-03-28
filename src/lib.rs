@@ -1,4 +1,6 @@
+pub mod add;
 pub mod config;
+pub mod file_picker;
 pub mod misc;
 
 // Get the home directory when the program starts
