@@ -1,4 +1,7 @@
-use crate::{config, config::structs::Mod};
+use crate::{
+    config,
+    config::structs::{Mod, ModIdentifier},
+};
 use ferinth::{
     structures::project_structs::{Project, ProjectType},
     Ferinth,
@@ -79,7 +82,7 @@ pub async fn github(
 
     // Check if repo has already been added
     for mod_ in &profile.mods {
-        if let Mod::GitHubRepository { full_name, .. } = mod_ {
+        if let ModIdentifier::GitHubRepository(full_name) = &mod_.identifier {
             if full_name == &repo_name {
                 return Err(Error::AlreadyAdded);
             }
@@ -101,9 +104,9 @@ pub async fn github(
     }
 
     if contains_jar_asset {
-        profile.mods.push(Mod::GitHubRepository {
+        profile.mods.push(Mod {
             name: repo.name.clone(),
-            full_name: repo_name,
+            identifier: ModIdentifier::GitHubRepository(repo_name),
         });
         Ok(repo)
     } else {
@@ -121,7 +124,7 @@ pub async fn modrinth(
     let project = modrinth.get_project(&project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        if let Mod::ModrinthProject { project_id, .. } = mod_ {
+        if let ModIdentifier::ModrinthProject(project_id) = &mod_.identifier {
             project_id == &project.id
         } else {
             false
@@ -132,9 +135,9 @@ pub async fn modrinth(
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
-        profile.mods.push(Mod::ModrinthProject {
+        profile.mods.push(Mod {
             name: project.title.clone(),
-            project_id: project.id.clone(),
+            identifier: ModIdentifier::ModrinthProject(project.id.clone()),
         });
         Ok(project)
     }
@@ -150,17 +153,17 @@ pub async fn curseforge(
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        if let Mod::CurseForgeProject { project_id, .. } = mod_ {
-            *project_id == project.id
+        if let ModIdentifier::CurseForgeProject(project_id) = &mod_.identifier {
+            project_id == &project.id
         } else {
             false
         }
     }) {
         Err(Error::AlreadyAdded)
     } else {
-        profile.mods.push(Mod::CurseForgeProject {
+        profile.mods.push(Mod {
             name: project.name.clone(),
-            project_id: project.id,
+            identifier: ModIdentifier::CurseForgeProject(project.id),
         });
         Ok(project)
     }

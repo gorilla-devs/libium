@@ -24,31 +24,20 @@ pub struct Profile {
     pub mods: Vec<Mod>,
 }
 
-/// A mod, which can be from 3 different sources
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
-pub enum Mod {
-    CurseForgeProject {
-        name: String,
-        project_id: i32,
-    },
-    ModrinthProject {
-        name: String,
-        project_id: String,
-    },
-    GitHubRepository {
-        name: String,
-        full_name: (String, String),
-    },
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Mod {
+    /// The name the mod
+    pub name: String,
+    /// An enum to identify the mod based on a mod source
+    pub identifier: ModIdentifier,
 }
 
-impl Mod {
-    pub fn name(&self) -> &str {
-        match self {
-            Mod::CurseForgeProject { name, .. }
-            | Mod::ModrinthProject { name, .. }
-            | Mod::GitHubRepository { name, .. } => name,
-        }
-    }
+/// A mod identifier, which can be from 3 different sources
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub enum ModIdentifier {
+    CurseForgeProject(i32),
+    ModrinthProject(String),
+    GitHubRepository((String, String)),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ArgEnum)]

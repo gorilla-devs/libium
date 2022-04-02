@@ -1,5 +1,9 @@
 # Changelog for Libium
 
+## [1.6.0] - 02.04.2022
+
+Update the `config` struct format
+
 ## [1.5.0] - 29.03.2022
 
 - Moved `upgrade.rs` from ferium to libium
