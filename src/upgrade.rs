@@ -22,7 +22,7 @@ pub enum Error {
 }
 
 /// Write `contents` to a file with path `profile.output_dir`/`file_name`
-async fn write_mod_file(
+pub async fn write_mod_file(
     profile: &config::structs::Profile,
     contents: bytes::Bytes,
     file_name: &str,
@@ -81,13 +81,7 @@ pub async fn curseforge(
         }
     }
 
-    if let Some(file) = latest_compatible_file {
-        let contents = curseforge.download_mod_file_from_file(&file).await?;
-        write_mod_file(profile, contents, &file.file_name).await?;
-        Ok(file)
-    } else {
-        Err(Error::NoCompatibleFile)
-    }
+    latest_compatible_file.ok_or(Error::NoCompatibleFile)
 }
 
 /// Download and install the latest release of `repo_handler`
@@ -126,22 +120,13 @@ pub async fn github(
                     && asset.name.contains("jar")
             {
                 // Specify this asset as a compatible asset
-                asset_to_download = Some(asset);
+                asset_to_download = Some(asset.clone());
                 break 'outer;
             }
         }
     }
 
-    if let Some(asset) = asset_to_download {
-        let contents = reqwest::get(asset.browser_download_url.clone())
-            .await?
-            .bytes()
-            .await?;
-        write_mod_file(profile, contents, &asset.name).await?;
-        Ok(asset.clone())
-    } else {
-        Err(Error::NoCompatibleFile)
-    }
+    asset_to_download.ok_or(Error::NoCompatibleFile)
 }
 
 /// Download and install the latest version of `project_id`
@@ -186,11 +171,5 @@ pub async fn modrinth(
         }
     }
 
-    if let Some(version) = latest_compatible_version {
-        let contents = modrinth.download_version_file(&version.files[0]).await?;
-        write_mod_file(profile, contents, &version.files[0].filename).await?;
-        Ok(version)
-    } else {
-        Err(Error::NoCompatibleFile)
-    }
+    latest_compatible_version.ok_or(Error::NoCompatibleFile)
 }

@@ -7,7 +7,7 @@ use tokio::{
 };
 
 /// Get the config file's path
-pub fn config_file_path() -> PathBuf {
+pub fn file_path() -> PathBuf {
     crate::HOME
         .join(".config")
         .join("ferium")
@@ -15,7 +15,7 @@ pub fn config_file_path() -> PathBuf {
 }
 
 /// Get the config file. If it doesn't exist, an empty config will be created and returned
-pub async fn get_config_file(config_file_path: PathBuf) -> Result<File> {
+pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
     match config_file_path.exists() {
         // If the file doesn't exist
         false => {
@@ -32,7 +32,7 @@ pub async fn get_config_file(config_file_path: PathBuf) -> Result<File> {
                 .await?;
 
             // Write an empty config to the config file
-            write_config(
+            write_file(
                 &mut file,
                 &structs::Config {
                     active_profile: 0,
@@ -57,7 +57,7 @@ pub async fn get_config_file(config_file_path: PathBuf) -> Result<File> {
 }
 
 /// Serialise `config` and write it to `config_file`
-pub async fn write_config(config_file: &mut File, config: &structs::Config) -> Result<()> {
+pub async fn write_file(config_file: &mut File, config: &structs::Config) -> Result<()> {
     let serialised = serde_json::to_string_pretty(config)?; // Serialise the config
     config_file.set_len(0).await?; // Truncate file to 0
     config_file.rewind().await?; // Rewind the file

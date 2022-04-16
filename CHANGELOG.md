@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## [1.7.0] - 15.04.2022
+
+- Remove `config` from function names in config module
+- Upgrade functions no longer download and write the mod file
+- `write_mod_file()`  is now public
+
 ## [1.6.0] - 02.04.2022
 
 Update the `config` struct format
