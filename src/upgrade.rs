@@ -1,4 +1,4 @@
-use crate::{config, misc};
+use crate::config;
 use ferinth::{structures::version_structs::Version, Ferinth};
 use furse::{structures::file_structs::File, Furse};
 use octocrab::{models::repos::Asset, repos::RepoHandler};
@@ -15,8 +15,6 @@ pub enum Error {
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
     CurseForgeError(#[from] reqwest::Error),
-    #[error("{}", .0)]
-    SemVerError(#[from] semver::Error),
     #[error("{}", .0)]
     IOError(#[from] tokio::io::Error),
 }
@@ -41,85 +39,93 @@ pub async fn write_mod_file(
     Ok(())
 }
 
+/// Check if the target `to_check` version is contained in `game_versions`.
+fn check_version(game_versions: &Vec<String>, to_check: &str) -> bool {
+    game_versions.iter().any(|version| version == &to_check)
+}
+
 /// Download and install the latest file of `project_id`
-///
-/// If the profile has configured version `1.18.2` and if `no_patch_check` is false, the mods will be checked specifically for `1.18.2`.
-/// If `no_patch_check` is true, the mods will be checked for `1.18`, `1.18.1`, `1.18.2`, or any future version of 1.18
 pub async fn curseforge(
     curseforge: &Furse,
     profile: &config::structs::Profile,
     project_id: i32,
-    no_patch_check: bool,
+    check_game_version: Option<bool>,
+    check_mod_loader: Option<bool>,
 ) -> Result<File> {
     let mut files = curseforge.get_mod_files(project_id).await?;
     files.sort_unstable_by_key(|file| file.file_date);
     // Reverse so that the newest files come first
     files.reverse();
-
     let mut latest_compatible_file = None;
-    let short_game_version = misc::remove_semver_patch(&profile.game_version)?;
 
     for file in files {
-        if no_patch_check {
-            if file
-                .game_versions
-                .iter()
-                .any(|game_version| game_version.contains(&short_game_version))
-                && file.game_versions.contains(&profile.mod_loader.to_string())
-            {
-                latest_compatible_file = Some(file);
-                break;
-            }
-        } else {
-            // Or else just check if it contains the full version
-            if file.game_versions.contains(&profile.game_version)
-                && file.game_versions.contains(&profile.mod_loader.to_string())
-            {
-                latest_compatible_file = Some(file);
-                break;
-            }
+        // Cancels the checks by short circuiting if it should not check
+        if (Some(false) == check_mod_loader
+            || file.game_versions.contains(&profile.mod_loader.to_string()))
+            && (Some(false) == check_game_version
+                || check_version(&file.game_versions, &profile.game_version))
+        {
+            latest_compatible_file = Some(file);
+            break;
         }
     }
 
     latest_compatible_file.ok_or(Error::NoCompatibleFile)
 }
 
+/// Download and install the latest version of `project_id`
+pub async fn modrinth(
+    modrinth: &Ferinth,
+    profile: &config::structs::Profile,
+    project_id: &str,
+    check_game_version: Option<bool>,
+    check_mod_loader: Option<bool>,
+) -> Result<Version> {
+    let versions = modrinth.list_versions(project_id).await?;
+    let mut latest_compatible_version = None;
+
+    for version in versions {
+        // Cancels the checks by short circuiting if it should not check
+        if (Some(false) == check_mod_loader
+            || version
+                .loaders
+                .contains(&profile.mod_loader.to_string().to_lowercase()))
+            && (Some(false) == check_game_version
+                || check_version(&version.game_versions, &profile.game_version))
+        {
+            latest_compatible_version = Some(version);
+            break;
+        }
+    }
+
+    latest_compatible_version.ok_or(Error::NoCompatibleFile)
+}
+
 /// Download and install the latest release of `repo_handler`
 pub async fn github(
     repo_handler: &RepoHandler<'_>,
     profile: &config::structs::Profile,
+    check_game_version: Option<bool>,
+    check_mod_loader: Option<bool>,
 ) -> Result<Asset> {
     let releases = repo_handler.releases().list().send().await?;
-    let version_to_check = misc::remove_semver_patch(&profile.game_version)?;
-
     let mut asset_to_download = None;
-    // Whether the mod loader is specified in asset names
-    let mut specifies_loader = false;
 
     'outer: for release in &releases {
+        let release_name = release.name.as_ref().unwrap();
         for asset in &release.assets {
-            // If the asset specifies the mod loader, set the `specifies_loader` flag to true
-            // If it was already set, this is skipped
-            if !specifies_loader && asset.name.to_lowercase().contains("fabric")
-                || asset.name.to_lowercase().contains("forge")
-            {
-                specifies_loader = true;
-            }
-
-            // If the mod loader is not specified then skip checking for the mod loader
-            if (!specifies_loader
-					// If it does specify, then check the mod loader
+            // Cancels the checks by short circuiting if it should not check
+            if (Some(false) == check_mod_loader
 					|| asset.name.to_lowercase().contains(&profile.mod_loader.to_string().to_lowercase()))
                     // Check if the game version is compatible
                     && (
-                        // Check the asset's name
-                        asset.name.contains(&version_to_check)
-						// and the release name
-                        || release.name.as_ref().unwrap().contains(&version_to_check))
+                        Some(false) == check_game_version
+                        || asset.name.contains(&profile.game_version)
+                        || release_name.contains(&profile.game_version)
+                    )
                     // Check if its a JAR file
                     && asset.name.contains("jar")
             {
-                // Specify this asset as a compatible asset
                 asset_to_download = Some(asset.clone());
                 break 'outer;
             }
@@ -127,49 +133,4 @@ pub async fn github(
     }
 
     asset_to_download.ok_or(Error::NoCompatibleFile)
-}
-
-/// Download and install the latest version of `project_id`
-///
-/// If the profile has configured version `1.18.2` and if `no_patch_check` is false, the mods will be checked specifically for `1.18.2`.
-/// If `no_patch_check` is true, the mods will be checked for `1.18`, `1.18.1`, `1.18.2`, or any future version of 1.18
-pub async fn modrinth(
-    modrinth: &Ferinth,
-    profile: &config::structs::Profile,
-    project_id: &str,
-    no_patch_check: bool,
-) -> Result<Version> {
-    let versions = modrinth.list_versions(project_id).await?;
-
-    let mut latest_compatible_version = None;
-    let short_game_version = misc::remove_semver_patch(&profile.game_version)?;
-
-    for version in versions {
-        if no_patch_check {
-            // Search every version to see if it contains the short_game_version
-            if version
-                .game_versions
-                .iter()
-                .any(|game_version| game_version.contains(&short_game_version))
-                && version
-                    .loaders
-                    .contains(&profile.mod_loader.to_string().to_lowercase())
-            {
-                latest_compatible_version = Some(version);
-                break;
-            }
-        } else {
-            // Or else just check if it contains the full version
-            if version.game_versions.contains(&profile.game_version)
-                && version
-                    .loaders
-                    .contains(&profile.mod_loader.to_string().to_lowercase())
-            {
-                latest_compatible_version = Some(version);
-                break;
-            }
-        }
-    }
-
-    latest_compatible_version.ok_or(Error::NoCompatibleFile)
 }

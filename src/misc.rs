@@ -20,20 +20,6 @@ pub async fn get_major_mc_versions(mut count: usize) -> Result<Vec<String>, feri
     Ok(major_versions)
 }
 
-/// Remove the given semver `input`'s patch version if it exists
-pub fn remove_semver_patch(input: &str) -> Result<String, semver::Error> {
-    // If the input string contains only one period, it already doesn't have the patch version
-    if input.matches('.').count() == 1 {
-        // So directly return the string
-        Ok(input.into())
-    } else {
-        // Or else parse the string
-        let version = semver::Version::parse(input)?;
-        // And return the major and minor versions
-        Ok(format!("{}.{}", version.major, version.minor))
-    }
-}
-
 /// Get the Minecraft mods directory based on the current OS
 /// If the OS doesn't match "macos", "linux", or "windows", this function will panic
 pub fn get_mods_dir() -> PathBuf {

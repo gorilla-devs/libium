@@ -30,6 +30,12 @@ pub struct Mod {
     pub name: String,
     /// An enum to identify the mod based on a mod source
     pub identifier: ModIdentifier,
+    /// Whether to check for game version compatibility
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub check_game_version: Option<bool>,
+    /// Whether to check for mod loader compatibility
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub check_mod_loader: Option<bool>,
 }
 
 /// A mod identifier, which can be from 3 different sources

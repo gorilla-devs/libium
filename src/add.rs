@@ -107,6 +107,8 @@ pub async fn github(
         profile.mods.push(Mod {
             name: repo.name.clone(),
             identifier: ModIdentifier::GitHubRepository(repo_name),
+            check_game_version: None,
+            check_mod_loader: None,
         });
         Ok(repo)
     } else {
@@ -138,6 +140,8 @@ pub async fn modrinth(
         profile.mods.push(Mod {
             name: project.title.clone(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
+            check_game_version: None,
+            check_mod_loader: None,
         });
         Ok(project)
     }
@@ -164,6 +168,8 @@ pub async fn curseforge(
         profile.mods.push(Mod {
             name: project.name.clone(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
+            check_game_version: None,
+            check_mod_loader: None,
         });
         Ok(project)
     }

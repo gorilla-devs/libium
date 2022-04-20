@@ -42,7 +42,7 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
             .await?;
 
             Ok(file)
-        }
+        },
         // If not just open and return the config file
         true => {
             OpenOptions::new()
@@ -52,7 +52,7 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
                 .create(false)
                 .open(config_file_path)
                 .await
-        }
+        },
     }
 }
 

@@ -1,5 +1,12 @@
 # Changelog for Libium
 
+## [1.8.0] - 20.04.2022
+
+- Added a `check_mod_loader` and `check_game_version` flag to each mod
+- They are `None` by default
+- If they are `Some(false)` then the corresponding checks are skipped in `upgrade.rs`
+- Removed `no_patch_check`, `remove_semver_patch()`, `SemVerError`, and the `semver` dependency
+
 ## [1.7.0] - 15.04.2022
 
 - Remove `config` from function names in config module
