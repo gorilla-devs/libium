@@ -19,7 +19,7 @@ pub struct Profile {
     /// Check if mod JARs are compatible with this Minecraft version
     pub game_version: String,
     /// Check if mod JARs are compatible with this mod loader
-    pub mod_loader: ModLoaders,
+    pub mod_loader: ModLoader,
     /// A list of all the mods configured
     pub mods: Vec<Mod>,
 }
@@ -47,13 +47,24 @@ pub enum ModIdentifier {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ArgEnum)]
-pub enum ModLoaders {
+pub enum ModLoader {
+    Quilt,
     Fabric,
     Forge,
 }
 
-impl std::fmt::Display for ModLoaders {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+#[derive(thiserror::Error, Debug)]
+#[error("The given string is not a mod loader")]
+pub struct ModLoaderParseError {}
+
+impl TryFrom<&String> for ModLoader {
+    type Error = ModLoaderParseError;
+    fn try_from(from: &String) -> Result<Self, Self::Error> {
+        match from.to_lowercase().as_str() {
+            "quilt" => Ok(Self::Quilt),
+            "fabric" => Ok(Self::Fabric),
+            "forge" => Ok(Self::Forge),
+            _ => Err(Self::Error {}),
+        }
     }
 }

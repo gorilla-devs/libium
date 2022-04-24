@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::{self, structs::ModLoader};
 use ferinth::{structures::version_structs::Version, Ferinth};
 use furse::{structures::file_structs::File, Furse};
 use octocrab::{models::repos::Asset, repos::RepoHandler};
@@ -39,38 +39,58 @@ pub async fn write_mod_file(
     Ok(())
 }
 
-/// Check if the target `to_check` version is contained in `game_versions`.
-fn check_version(game_versions: &Vec<String>, to_check: &str) -> bool {
+/// Check if the target `to_check` version is present in `game_versions`.
+fn check_game_version(game_versions: &Vec<String>, to_check: &str) -> bool {
     game_versions.iter().any(|version| version == &to_check)
 }
 
-/// Download and install the latest file of `project_id`
+/// Check if the target `to_check` mod loader is present in `mod_loaders`
+pub fn check_mod_loader(mod_loaders: &Vec<String>, to_check: &ModLoader) -> bool {
+    for mod_loader in mod_loaders {
+        if let Ok(mod_loader) = ModLoader::try_from(mod_loader) {
+            if &mod_loader == to_check {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Get the latest compatible file of `project_id`
+///
+/// Returns an additional boolean that is true if the file is supported though backwards compatibility
+/// (e.g. Fabric mods running on Quilt)
 pub async fn curseforge(
     curseforge: &Furse,
     profile: &config::structs::Profile,
     project_id: i32,
-    check_game_version: Option<bool>,
-    check_mod_loader: Option<bool>,
-) -> Result<File> {
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
+) -> Result<(File, bool)> {
     let mut files = curseforge.get_mod_files(project_id).await?;
     files.sort_unstable_by_key(|file| file.file_date);
     // Reverse so that the newest files come first
     files.reverse();
-    let mut latest_compatible_file = None;
 
     for file in files {
         // Cancels the checks by short circuiting if it should not check
-        if (Some(false) == check_mod_loader
-            || file.game_versions.contains(&profile.mod_loader.to_string()))
-            && (Some(false) == check_game_version
-                || check_version(&file.game_versions, &profile.game_version))
+        if Some(false) == should_check_game_version
+            || check_game_version(&file.game_versions, &profile.game_version)
         {
-            latest_compatible_file = Some(file);
-            break;
+            if Some(false) == should_check_mod_loader
+                || check_mod_loader(&file.game_versions, &profile.mod_loader)
+            {
+                return Ok((file, false));
+            }
+            if Some(false) == should_check_mod_loader
+                || (profile.mod_loader == ModLoader::Quilt
+                    && check_mod_loader(&file.game_versions, &ModLoader::Fabric))
+            {
+                return Ok((file, true));
+            }
         }
     }
-
-    latest_compatible_file.ok_or(Error::NoCompatibleFile)
+    Err(Error::NoCompatibleFile)
 }
 
 /// Download and install the latest version of `project_id`
@@ -78,59 +98,63 @@ pub async fn modrinth(
     modrinth: &Ferinth,
     profile: &config::structs::Profile,
     project_id: &str,
-    check_game_version: Option<bool>,
-    check_mod_loader: Option<bool>,
-) -> Result<Version> {
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
+) -> Result<(Version, bool)> {
     let versions = modrinth.list_versions(project_id).await?;
-    let mut latest_compatible_version = None;
 
     for version in versions {
         // Cancels the checks by short circuiting if it should not check
-        if (Some(false) == check_mod_loader
-            || version
-                .loaders
-                .contains(&profile.mod_loader.to_string().to_lowercase()))
-            && (Some(false) == check_game_version
-                || check_version(&version.game_versions, &profile.game_version))
+        if Some(false) == should_check_game_version
+            || check_game_version(&version.game_versions, &profile.game_version)
         {
-            latest_compatible_version = Some(version);
-            break;
+            if Some(false) == should_check_mod_loader
+                || check_mod_loader(&version.loaders, &profile.mod_loader)
+            {
+                return Ok((version, false));
+            }
+            if Some(false) == should_check_mod_loader
+                || (profile.mod_loader == ModLoader::Quilt
+                    && check_mod_loader(&version.loaders, &ModLoader::Fabric))
+            {
+                return Ok((version, true));
+            }
         }
     }
-
-    latest_compatible_version.ok_or(Error::NoCompatibleFile)
+    Err(Error::NoCompatibleFile)
 }
 
 /// Download and install the latest release of `repo_handler`
 pub async fn github(
     repo_handler: &RepoHandler<'_>,
     profile: &config::structs::Profile,
-    check_game_version: Option<bool>,
-    check_mod_loader: Option<bool>,
-) -> Result<Asset> {
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
+) -> Result<(Asset, bool)> {
     let releases = repo_handler.releases().list().send().await?;
-    let mut asset_to_download = None;
 
-    'outer: for release in &releases {
+    for release in &releases {
         let release_name = release.name.as_ref().unwrap();
         for asset in &release.assets {
             // Cancels the checks by short circuiting if it should not check
-            if (Some(false) == check_mod_loader
-					|| asset.name.to_lowercase().contains(&profile.mod_loader.to_string().to_lowercase()))
-                    // Check if the game version is compatible
-                    && (
-                        Some(false) == check_game_version
-                        || asset.name.contains(&profile.game_version)
-                        || release_name.contains(&profile.game_version)
-                    )
-                    // Check if its a JAR file
-                    && asset.name.contains("jar")
+            if Some(false) == should_check_game_version
+                || asset.name.contains(&profile.game_version)
+                || release_name.contains(&profile.game_version) && asset.name.contains("jar")
             {
-                asset_to_download = Some(asset.clone());
-                break 'outer;
+                let asset_name = asset.name.split("-").map(str::to_string).collect();
+                if Some(false) == should_check_mod_loader
+                    || check_mod_loader(&asset_name, &profile.mod_loader)
+                {
+                    return Ok((asset.clone(), false));
+                }
+                if Some(false) == should_check_mod_loader
+                    || (profile.mod_loader == ModLoader::Quilt
+                        && check_mod_loader(&asset_name, &ModLoader::Fabric))
+                {
+                    return Ok((asset.clone(), true));
+                }
             }
         }
     }
-
-    asset_to_download.ok_or(Error::NoCompatibleFile)
+    Err(Error::NoCompatibleFile)
 }

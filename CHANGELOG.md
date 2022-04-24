@@ -1,5 +1,12 @@
 # Changelog for Libium
 
+## [1.9.0] - 24.04.2022
+
+- Added Quilt to `ModLoader`
+- Added `check_mod_loader()` to check mod loader compatibility
+- The upgrade functions now return additional info, whether the mod was deemed compatible through backwards compatibility (e.g. Fabric mod on Quilt)
+- Generally improved code in `upgrade`
+
 ## [1.8.0] - 20.04.2022
 
 - Added a `check_mod_loader` and `check_game_version` flag to each mod
