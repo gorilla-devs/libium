@@ -24,13 +24,17 @@ pub enum Error {
     #[error("{}", .0)]
     ModrinthError(ferinth::Error),
     #[error("{}", .0)]
-    CurseForgeError(reqwest::Error),
+    CurseForgeError(furse::Error),
 }
 
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Self {
-        if Some(StatusCode::NOT_FOUND) == err.status() {
-            Self::DoesNotExist
+impl From<furse::Error> for Error {
+    fn from(err: furse::Error) -> Self {
+        if let furse::Error::ReqwestError(source) = &err {
+            if Some(StatusCode::NOT_FOUND) == source.status() {
+                Self::DoesNotExist
+            } else {
+                Self::CurseForgeError(err)
+            }
         } else {
             Self::CurseForgeError(err)
         }
@@ -80,13 +84,10 @@ pub async fn github(
         .collect::<Vec<_>>();
     let repo_name = (repo_name_split[0].into(), repo_name_split[1].into());
 
-    // Check if repo has already been added
-    for mod_ in &profile.mods {
-        if let ModIdentifier::GitHubRepository(full_name) = &mod_.identifier {
-            if full_name == &repo_name {
-                return Err(Error::AlreadyAdded);
-            }
-        }
+    if profile.mods.iter().any(|mod_| {
+        config::structs::ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier
+    }) {
+        return Err(Error::AlreadyAdded);
     }
 
     let releases = repo_handler.releases().list().send().await?;
@@ -120,17 +121,13 @@ pub async fn github(
 /// Returns the project struct
 pub async fn modrinth(
     modrinth: &Ferinth,
-    project_id: String,
+    project_id: &str,
     profile: &mut config::structs::Profile,
 ) -> Result<Project> {
-    let project = modrinth.get_project(&project_id).await?;
+    let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        if let ModIdentifier::ModrinthProject(project_id) = &mod_.identifier {
-            project_id == &project.id
-        } else {
-            false
-        }
+        config::structs::ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
     }) {
         Err(Error::AlreadyAdded)
     // Check that the project is a mod
@@ -157,11 +154,7 @@ pub async fn curseforge(
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        if let ModIdentifier::CurseForgeProject(project_id) = &mod_.identifier {
-            project_id == &project.id
-        } else {
-            false
-        }
+        config::structs::ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
         Err(Error::AlreadyAdded)
     } else {

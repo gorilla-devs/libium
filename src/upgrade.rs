@@ -14,7 +14,7 @@ pub enum Error {
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
-    CurseForgeError(#[from] reqwest::Error),
+    CurseForgeError(#[from] furse::Error),
     #[error("{}", .0)]
     IOError(#[from] tokio::io::Error),
 }
@@ -40,12 +40,12 @@ pub async fn write_mod_file(
 }
 
 /// Check if the target `to_check` version is present in `game_versions`.
-fn check_game_version(game_versions: &Vec<String>, to_check: &str) -> bool {
-    game_versions.iter().any(|version| version == &to_check)
+fn check_game_version(game_versions: &[String], to_check: &str) -> bool {
+    game_versions.iter().any(|version| version == to_check)
 }
 
 /// Check if the target `to_check` mod loader is present in `mod_loaders`
-pub fn check_mod_loader(mod_loaders: &Vec<String>, to_check: &ModLoader) -> bool {
+fn check_mod_loader(mod_loaders: &[String], to_check: &ModLoader) -> bool {
     for mod_loader in mod_loaders {
         if let Ok(mod_loader) = ModLoader::try_from(mod_loader) {
             if &mod_loader == to_check {
@@ -136,12 +136,19 @@ pub async fn github(
     for release in &releases {
         let release_name = release.name.as_ref().unwrap();
         for asset in &release.assets {
-            // Cancels the checks by short circuiting if it should not check
-            if Some(false) == should_check_game_version
+            if asset.name.contains("jar")
+                // Sources JARs should not be used with the regular game
+                && !asset.name.contains("sources")
+                // Cancels the checks by short circuiting if it should not check
+                && (Some(false) == should_check_game_version
                 || asset.name.contains(&profile.game_version)
-                || release_name.contains(&profile.game_version) && asset.name.contains("jar")
+                || release_name.contains(&profile.game_version))
             {
-                let asset_name = asset.name.split("-").map(str::to_string).collect();
+                let asset_name = asset
+                    .name
+                    .split('-')
+                    .map(str::to_string)
+                    .collect::<Vec<_>>();
                 if Some(false) == should_check_mod_loader
                     || check_mod_loader(&asset_name, &profile.mod_loader)
                 {

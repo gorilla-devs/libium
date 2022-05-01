@@ -1,5 +1,14 @@
 # Changelog for Libium
 
+## `1.10.0`
+### 01.05.2022
+
+- Added minor versions to `Cargo.toml`
+- Update to Furse `1.1`
+  - Implemented new error type
+- Simplified checking if a project had already been added
+- `upgrade::github()` now checks that the asset isn't a sources jar
+
 ## [1.9.0] - 24.04.2022
 
 - Added Quilt to `ModLoader`
