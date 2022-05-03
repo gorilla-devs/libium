@@ -46,27 +46,20 @@ fn check_game_version(game_versions: &[String], to_check: &str) -> bool {
 
 /// Check if the target `to_check` mod loader is present in `mod_loaders`
 fn check_mod_loader(mod_loaders: &[String], to_check: &ModLoader) -> bool {
-    for mod_loader in mod_loaders {
-        if let Ok(mod_loader) = ModLoader::try_from(mod_loader) {
-            if &mod_loader == to_check {
-                return true;
-            }
-        }
-    }
-    false
+    mod_loaders
+        .iter()
+        .any(|mod_loader| Ok(to_check) == ModLoader::try_from(mod_loader).as_ref())
 }
 
 /// Get the latest compatible file of `project_id`
-///
-/// Returns an additional boolean that is true if the file is supported though backwards compatibility
-/// (e.g. Fabric mods running on Quilt)
 pub async fn curseforge(
     curseforge: &Furse,
-    profile: &config::structs::Profile,
     project_id: i32,
+    game_version_to_check: &str,
+    mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(File, bool)> {
+) -> Result<File> {
     let mut files = curseforge.get_mod_files(project_id).await?;
     files.sort_unstable_by_key(|file| file.file_date);
     // Reverse so that the newest files come first
@@ -74,92 +67,68 @@ pub async fn curseforge(
 
     for file in files {
         // Cancels the checks by short circuiting if it should not check
-        if Some(false) == should_check_game_version
-            || check_game_version(&file.game_versions, &profile.game_version)
+        if (Some(false) == should_check_game_version
+            || check_game_version(&file.game_versions, game_version_to_check))
+            && (Some(false) == should_check_mod_loader
+                || check_mod_loader(&file.game_versions, mod_loader_to_check))
         {
-            if Some(false) == should_check_mod_loader
-                || check_mod_loader(&file.game_versions, &profile.mod_loader)
-            {
-                return Ok((file, false));
-            }
-            if Some(false) == should_check_mod_loader
-                || (profile.mod_loader == ModLoader::Quilt
-                    && check_mod_loader(&file.game_versions, &ModLoader::Fabric))
-            {
-                return Ok((file, true));
-            }
+            return Ok(file);
         }
     }
     Err(Error::NoCompatibleFile)
 }
 
-/// Download and install the latest version of `project_id`
+/// Get the latest compatible file of `project_id`
 pub async fn modrinth(
     modrinth: &Ferinth,
-    profile: &config::structs::Profile,
     project_id: &str,
+    game_version_to_check: &str,
+    mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(Version, bool)> {
+) -> Result<Version> {
     let versions = modrinth.list_versions(project_id).await?;
 
     for version in versions {
         // Cancels the checks by short circuiting if it should not check
-        if Some(false) == should_check_game_version
-            || check_game_version(&version.game_versions, &profile.game_version)
+        if (Some(false) == should_check_game_version
+            || check_game_version(&version.game_versions, game_version_to_check))
+            && (Some(false) == should_check_mod_loader
+                || check_mod_loader(&version.loaders, mod_loader_to_check))
         {
-            if Some(false) == should_check_mod_loader
-                || check_mod_loader(&version.loaders, &profile.mod_loader)
-            {
-                return Ok((version, false));
-            }
-            if Some(false) == should_check_mod_loader
-                || (profile.mod_loader == ModLoader::Quilt
-                    && check_mod_loader(&version.loaders, &ModLoader::Fabric))
-            {
-                return Ok((version, true));
-            }
+            return Ok(version);
         }
     }
     Err(Error::NoCompatibleFile)
 }
 
-/// Download and install the latest release of `repo_handler`
+/// Get the latest compatible asset of `repo_handler`
 pub async fn github(
     repo_handler: &RepoHandler<'_>,
-    profile: &config::structs::Profile,
+    game_version_to_check: &str,
+    mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(Asset, bool)> {
+) -> Result<Asset> {
     let releases = repo_handler.releases().list().send().await?;
-
-    for release in &releases {
+    for release in releases {
         let release_name = release.name.as_ref().unwrap();
-        for asset in &release.assets {
+        for asset in release.assets {
             if asset.name.contains("jar")
                 // Sources JARs should not be used with the regular game
                 && !asset.name.contains("sources")
                 // Cancels the checks by short circuiting if it should not check
                 && (Some(false) == should_check_game_version
-                || asset.name.contains(&profile.game_version)
-                || release_name.contains(&profile.game_version))
-            {
-                let asset_name = asset
+                || asset.name.contains(game_version_to_check)
+                || release_name.contains(game_version_to_check))
+                && (Some(false) == should_check_mod_loader
+                || check_mod_loader(&asset
                     .name
                     .split('-')
                     .map(str::to_string)
-                    .collect::<Vec<_>>();
-                if Some(false) == should_check_mod_loader
-                    || check_mod_loader(&asset_name, &profile.mod_loader)
-                {
-                    return Ok((asset.clone(), false));
-                }
-                if Some(false) == should_check_mod_loader
-                    || (profile.mod_loader == ModLoader::Quilt
-                        && check_mod_loader(&asset_name, &ModLoader::Fabric))
-                {
-                    return Ok((asset.clone(), true));
-                }
+                    .collect::<Vec<_>>(), mod_loader_to_check))
+            {
+                return Ok(asset);
             }
         }
     }

@@ -1,5 +1,13 @@
 # Changelog for Libium
 
+## `1.11.0`
+### 03.05.2022
+
+- Replace the `for` loop in `check_mod_loader()` with an iterator call
+- The upgrade functions no longer deal with Quilt -> Fabric backwards compatibility
+- Upgrade functions (again) return only the compatibile asset they found
+- Upgrade functions no longer take a `profile`, they check for compatibility with the `game_version_to_check` and `mod_loader_to_check` provided
+
 ## `1.10.0`
 ### 01.05.2022
 

@@ -53,7 +53,7 @@ pub enum ModLoader {
     Forge,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 #[error("The given string is not a mod loader")]
 pub struct ModLoaderParseError {}
 
