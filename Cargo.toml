@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.11.0"
+version = "1.11.1"
 edition = "2021"
 authors = ["Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>", "Daniel Hauck (SolidTux)"]
 description = "Libium is the backend of Ferium. It helps manage Minecraft mods from Modrinth, CurseForge, and Github Releases"
@@ -29,7 +29,7 @@ lazy_static = "1.4"
 dialoguer = "0.10"
 serde_json = "1.0"
 thiserror = "1.0"
-ferinth = "2.1"
+ferinth = "2.2"
 bytes = "1.1"
 furse = "1.1"
 home = "0.5"

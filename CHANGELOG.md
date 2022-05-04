@@ -1,5 +1,12 @@
 # Changelog for Libium
 
+## `1.11.1`
+### 04.05.2022
+
+- Updated to Ferinth `2.2`
+- Add commands now accept `should_check_game_version` and `should_check_mod_loader`
+- They also use this when adding the mod to the config
+
 ## `1.11.0`
 ### 03.05.2022
 

@@ -73,6 +73,8 @@ impl From<octocrab::Error> for Error {
 pub async fn github(
     repo_handler: RepoHandler<'_>,
     profile: &mut config::structs::Profile,
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
 ) -> Result<Repository> {
     let repo = repo_handler.get().await?;
     // Get the name of the repository as a tuple
@@ -108,8 +110,16 @@ pub async fn github(
         profile.mods.push(Mod {
             name: repo.name.clone(),
             identifier: ModIdentifier::GitHubRepository(repo_name),
-            check_game_version: None,
-            check_mod_loader: None,
+            check_game_version: if should_check_game_version == Some(true) {
+                None
+            } else {
+                should_check_game_version
+            },
+            check_mod_loader: if should_check_mod_loader == Some(true) {
+                None
+            } else {
+                should_check_mod_loader
+            },
         });
         Ok(repo)
     } else {
@@ -123,6 +133,8 @@ pub async fn modrinth(
     modrinth: &Ferinth,
     project_id: &str,
     profile: &mut config::structs::Profile,
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
 ) -> Result<Project> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
@@ -137,8 +149,16 @@ pub async fn modrinth(
         profile.mods.push(Mod {
             name: project.title.clone(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
-            check_game_version: None,
-            check_mod_loader: None,
+            check_game_version: if should_check_game_version == Some(true) {
+                None
+            } else {
+                should_check_game_version
+            },
+            check_mod_loader: if should_check_mod_loader == Some(true) {
+                None
+            } else {
+                should_check_mod_loader
+            },
         });
         Ok(project)
     }
@@ -150,6 +170,8 @@ pub async fn curseforge(
     curseforge: &Furse,
     project_id: i32,
     profile: &mut config::structs::Profile,
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
 ) -> Result<furse::structures::mod_structs::Mod> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
@@ -161,8 +183,16 @@ pub async fn curseforge(
         profile.mods.push(Mod {
             name: project.name.clone(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
-            check_game_version: None,
-            check_mod_loader: None,
+            check_game_version: if should_check_game_version == Some(true) {
+                None
+            } else {
+                should_check_game_version
+            },
+            check_mod_loader: if should_check_mod_loader == Some(true) {
+                None
+            } else {
+                should_check_mod_loader
+            },
         });
         Ok(project)
     }
