@@ -26,7 +26,7 @@ pub fn get_mods_dir() -> PathBuf {
     match std::env::consts::OS {
         "macos" => HOME
             .join("Library")
-            .join("ApplicationSupport")
+            .join("Application Support")
             .join("minecraft")
             .join("mods"),
         "linux" => HOME.join(".minecraft").join("mods"),
