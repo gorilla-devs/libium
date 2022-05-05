@@ -29,7 +29,8 @@ pub async fn pick_folder(default: &PathBuf, prompt: &str) -> Option<PathBuf> {
     use dialoguer::{theme::ColorfulTheme, Input};
     Input::with_theme(&ColorfulTheme::default())
         .with_prompt(prompt)
-        .default(default)
+        .default(default.display().to_string())
         .interact()
         .ok()
+        .map(|string| string.into())
 }
