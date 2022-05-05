@@ -1,5 +1,16 @@
 # Changelog for Libium
 
+## `1.11.3`
+### 05.05.2022
+
+- Added `prompt` to file pickers
+- Used the `default` provided to the no-gui pick folder
+
+## `1.11.2`
+### 05.05.2022
+
+Change macOS default mods directory from using the `ApplicationSupport` shortcut to the actual `Application Support` directory
+
 ## `1.11.1`
 ### 04.05.2022
 
