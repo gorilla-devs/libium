@@ -71,7 +71,7 @@ impl From<octocrab::Error> for Error {
 
 /// Check if repo of `repo_handler` exists and releases mods, and if so add the repo to `profile`
 pub async fn github(
-    repo_handler: RepoHandler<'_>,
+    repo_handler: &RepoHandler<'_>,
     profile: &mut config::structs::Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,

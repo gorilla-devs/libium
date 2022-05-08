@@ -112,15 +112,13 @@ pub async fn github(
 ) -> Result<Asset> {
     let releases = repo_handler.releases().list().send().await?;
     for release in releases {
-        let release_name = release.name.as_ref().unwrap();
         for asset in release.assets {
             if asset.name.contains("jar")
                 // Sources JARs should not be used with the regular game
                 && !asset.name.contains("sources")
                 // Cancels the checks by short circuiting if it should not check
                 && (Some(false) == should_check_game_version
-                || asset.name.contains(game_version_to_check)
-                || release_name.contains(game_version_to_check))
+                || asset.name.contains(game_version_to_check))
                 && (Some(false) == should_check_mod_loader
                 || check_mod_loader(&asset
                     .name

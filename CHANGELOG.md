@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## `1.11.4`
+### 08.05.2022
+
+- Do not check the release name when checking the game version for github releases
+  - This fixes Ferium [#47](https://github.com/theRookieCoder/ferium/issues/47)
+
 ## `1.11.3`
 ### 05.05.2022
 
