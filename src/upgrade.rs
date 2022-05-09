@@ -1,134 +1,220 @@
-use crate::config::{self, structs::ModLoader};
-use ferinth::{structures::version_structs::Version, Ferinth};
+use crate::{
+    check,
+    config::structs::{Mod, ModIdentifier, ModLoader},
+};
+use ferinth::{
+    structures::version_structs::{Version, VersionFile},
+    Ferinth,
+};
 use furse::{structures::file_structs::File, Furse};
-use octocrab::{models::repos::Asset, repos::RepoHandler};
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use octocrab::{models::repos::Asset, repos::RepoHandler, Octocrab};
+use std::sync::Arc;
 
-type Result<T> = std::result::Result<T, Error>;
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Could not find a compatible file to download")]
-    NoCompatibleFile,
-    #[error("{}", .0)]
-    GitHubError(#[from] octocrab::Error),
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
     CurseForgeError(#[from] furse::Error),
     #[error("{}", .0)]
-    IOError(#[from] tokio::io::Error),
+    GitHubError(#[from] octocrab::Error),
+    #[error("No compatible file was found")]
+    NoCompatibleFile,
 }
+type Result<T> = std::result::Result<T, Error>;
 
-/// Write `contents` to a file with path `profile.output_dir`/`file_name`
-pub async fn write_mod_file(
-    profile: &config::structs::Profile,
-    contents: bytes::Bytes,
-    file_name: &str,
-) -> tokio::io::Result<()> {
-    // Open the mod JAR file
-    let mut mod_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(profile.output_dir.join(file_name))
-        .await?;
-
-    // Write downloaded contents to mod JAR file
-    mod_file.write_all(&contents).await?;
-    Ok(())
+#[derive(Debug, Clone)]
+pub struct Downloadable {
+    pub filename: String,
+    pub download_url: String,
 }
-
-/// Check if the target `to_check` version is present in `game_versions`.
-fn check_game_version(game_versions: &[String], to_check: &str) -> bool {
-    game_versions.iter().any(|version| version == to_check)
-}
-
-/// Check if the target `to_check` mod loader is present in `mod_loaders`
-fn check_mod_loader(mod_loaders: &[String], to_check: &ModLoader) -> bool {
-    mod_loaders
-        .iter()
-        .any(|mod_loader| Ok(to_check) == ModLoader::try_from(mod_loader).as_ref())
-}
-
-/// Get the latest compatible file of `project_id`
-pub async fn curseforge(
-    curseforge: &Furse,
-    project_id: i32,
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Result<File> {
-    let mut files = curseforge.get_mod_files(project_id).await?;
-    files.sort_unstable_by_key(|file| file.file_date);
-    // Reverse so that the newest files come first
-    files.reverse();
-
-    for file in files {
-        // Cancels the checks by short circuiting if it should not check
-        if (Some(false) == should_check_game_version
-            || check_game_version(&file.game_versions, game_version_to_check))
-            && (Some(false) == should_check_mod_loader
-                || check_mod_loader(&file.game_versions, mod_loader_to_check))
-        {
-            return Ok(file);
+impl From<furse::structures::file_structs::File> for Downloadable {
+    fn from(file: furse::structures::file_structs::File) -> Self {
+        Self {
+            filename: file.file_name,
+            download_url: file.download_url,
         }
     }
-    Err(Error::NoCompatibleFile)
+}
+impl From<ferinth::structures::version_structs::VersionFile> for Downloadable {
+    fn from(file: ferinth::structures::version_structs::VersionFile) -> Self {
+        Self {
+            filename: file.filename,
+            download_url: file.url,
+        }
+    }
+}
+impl From<octocrab::models::repos::Asset> for Downloadable {
+    fn from(asset: octocrab::models::repos::Asset) -> Self {
+        Self {
+            filename: asset.name,
+            download_url: asset.browser_download_url.into(),
+        }
+    }
 }
 
-/// Get the latest compatible file of `project_id`
-pub async fn modrinth(
-    modrinth: &Ferinth,
+/// Get the latest compatible version and version file of the provided `project_id`.
+/// Also returns whether Fabric backwards compatibility was used
+pub async fn get_latest_compatible_version(
+    modrinth: Arc<Ferinth>,
     project_id: &str,
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<Version> {
+) -> Result<(VersionFile, Version, bool)> {
     let versions = modrinth.list_versions(project_id).await?;
-
-    for version in versions {
-        // Cancels the checks by short circuiting if it should not check
-        if (Some(false) == should_check_game_version
-            || check_game_version(&version.game_versions, game_version_to_check))
-            && (Some(false) == should_check_mod_loader
-                || check_mod_loader(&version.loaders, mod_loader_to_check))
-        {
-            return Ok(version);
-        }
+    match check::modrinth(
+        &versions,
+        game_version_to_check,
+        mod_loader_to_check,
+        should_check_game_version,
+        should_check_mod_loader,
+    )
+    .await
+    {
+        Some(some) => Ok((some.0.clone(), some.1.clone(), false)),
+        None => {
+            if mod_loader_to_check == &ModLoader::Quilt {
+                check::modrinth(
+                    &versions,
+                    game_version_to_check,
+                    &ModLoader::Fabric,
+                    should_check_game_version,
+                    should_check_mod_loader,
+                )
+                .await
+                .map_or_else(
+                    || Err(Error::NoCompatibleFile),
+                    |some| Ok((some.0.clone(), some.1.clone(), true)),
+                )
+            } else {
+                Err(Error::NoCompatibleFile)
+            }
+        },
     }
-    Err(Error::NoCompatibleFile)
 }
 
-/// Get the latest compatible asset of `repo_handler`
-pub async fn github(
-    repo_handler: &RepoHandler<'_>,
+/// Get the latest compatible file of the provided `project_id`.
+/// Also returns whether Fabric backwards compatibility was used
+pub async fn get_latest_compatible_file(
+    curseforge: Arc<Furse>,
+    project_id: i32,
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<Asset> {
-    let releases = repo_handler.releases().list().send().await?;
-    for release in releases {
-        for asset in release.assets {
-            if asset.name.contains("jar")
-                // Sources JARs should not be used with the regular game
-                && !asset.name.contains("sources")
-                // Cancels the checks by short circuiting if it should not check
-                && (Some(false) == should_check_game_version
-                || asset.name.contains(game_version_to_check))
-                && (Some(false) == should_check_mod_loader
-                || check_mod_loader(&asset
-                    .name
-                    .split('-')
-                    .map(str::to_string)
-                    .collect::<Vec<_>>(), mod_loader_to_check))
-            {
-                return Ok(asset);
+) -> Result<(File, bool)> {
+    let mut files = curseforge.get_mod_files(project_id).await?;
+    match check::curseforge(
+        &mut files,
+        game_version_to_check,
+        mod_loader_to_check,
+        should_check_game_version,
+        should_check_mod_loader,
+    )
+    .await
+    {
+        Some(some) => Ok((some.clone().into(), false)),
+        None => {
+            if mod_loader_to_check == &ModLoader::Quilt {
+                check::curseforge(
+                    &mut files,
+                    game_version_to_check,
+                    &ModLoader::Fabric,
+                    should_check_game_version,
+                    should_check_mod_loader,
+                )
+                .await
+                .map_or_else(
+                    || Err(Error::NoCompatibleFile),
+                    |some| Ok((some.clone().into(), true)),
+                )
+            } else {
+                Err(Error::NoCompatibleFile)
             }
-        }
+        },
     }
-    Err(Error::NoCompatibleFile)
+}
+
+/// Get the latest compatible asset of the provided `repo_handler`.
+/// Also returns whether Fabric backwards compatibility was used
+pub async fn get_latest_compatible_asset(
+    repo_handler: RepoHandler<'_>,
+    game_version_to_check: &str,
+    mod_loader_to_check: &ModLoader,
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
+) -> Result<(Asset, bool)> {
+    let releases = repo_handler.releases().list().send().await?.items;
+    match check::github(
+        &releases,
+        game_version_to_check,
+        mod_loader_to_check,
+        should_check_game_version,
+        should_check_mod_loader,
+    )
+    .await
+    {
+        Some(some) => Ok((some.clone().into(), false)),
+        None => {
+            if mod_loader_to_check == &ModLoader::Quilt {
+                check::github(
+                    &releases,
+                    game_version_to_check,
+                    &ModLoader::Fabric,
+                    should_check_game_version,
+                    should_check_mod_loader,
+                )
+                .await
+                .map_or_else(
+                    || Err(Error::NoCompatibleFile),
+                    |some| Ok((some.clone().into(), true)),
+                )
+            } else {
+                Err(Error::NoCompatibleFile)
+            }
+        },
+    }
+}
+
+pub async fn get_latest_compatible_downloadable(
+    modrinth: Arc<Ferinth>,
+    curseforge: Arc<Furse>,
+    github: Arc<Octocrab>,
+    mod_: &Mod,
+    game_version_to_check: &str,
+    mod_loader_to_check: &ModLoader,
+) -> Result<(Downloadable, bool)> {
+    match &mod_.identifier {
+        ModIdentifier::CurseForgeProject(project_id) => get_latest_compatible_file(
+            curseforge,
+            *project_id,
+            game_version_to_check,
+            mod_loader_to_check,
+            mod_.check_game_version,
+            mod_.check_mod_loader,
+        )
+        .await
+        .map(|ok| (ok.0.into(), ok.1)),
+        ModIdentifier::ModrinthProject(project_id) => get_latest_compatible_version(
+            modrinth,
+            project_id,
+            game_version_to_check,
+            mod_loader_to_check,
+            mod_.check_game_version,
+            mod_.check_mod_loader,
+        )
+        .await
+        .map(|ok| (ok.0.into(), ok.2)),
+        ModIdentifier::GitHubRepository(full_name) => get_latest_compatible_asset(
+            github.repos(full_name.0.clone(), full_name.1.clone()),
+            game_version_to_check,
+            mod_loader_to_check,
+            mod_.check_game_version,
+            mod_.check_mod_loader,
+        )
+        .await
+        .map(|ok| (ok.0.into(), ok.1)),
+    }
 }

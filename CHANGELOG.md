@@ -1,5 +1,18 @@
 # Changelog for Libium
 
+## `1.12.0`
+### 09.05.2022
+
+- Rename the `upgrade` module to `check`
+- Changes in `check`
+  - Removed error
+  - `write_mod_file()` now takes an output directory rather than a whole file
+  - The functions now take a vector of items to search and return a reference to the latest compatible one using an `Option`
+  - The modrinth function now return the primary version file along side the version
+- Create a new upgrade module which actually does upgrading stuff
+  - Functions to get the latest compatible 'item' for each mod source. These functions also implement the Quilt->Fabric backwards compatibility
+  - A function to use the previously mentioned functions from a mod identifier to return a downloadable
+
 ## `1.11.4`
 ### 08.05.2022
 

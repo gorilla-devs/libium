@@ -1,7 +1,4 @@
-use crate::{
-    config,
-    config::structs::{Mod, ModIdentifier},
-};
+use crate::config::structs::{Mod, ModIdentifier, Profile};
 use ferinth::{
     structures::project_structs::{Project, ProjectType},
     Ferinth,
@@ -9,6 +6,7 @@ use ferinth::{
 use furse::Furse;
 use octocrab::{models::Repository, repos::RepoHandler};
 use reqwest::StatusCode;
+use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
@@ -69,10 +67,10 @@ impl From<octocrab::Error> for Error {
     }
 }
 
-/// Check if repo of `repo_handler` exists and releases mods, and if so add the repo to `profile`
+/// Check if the repo of `repo_handler` exists and releases mods, and if so add the repo to `profile`
 pub async fn github(
     repo_handler: &RepoHandler<'_>,
-    profile: &mut config::structs::Profile,
+    profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<Repository> {
@@ -86,20 +84,22 @@ pub async fn github(
         .collect::<Vec<_>>();
     let repo_name = (repo_name_split[0].into(), repo_name_split[1].into());
 
-    if profile.mods.iter().any(|mod_| {
-        config::structs::ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier
-    }) {
+    // Check if project has already been added
+    if profile
+        .mods
+        .iter()
+        .any(|mod_| ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier)
+    {
         return Err(Error::AlreadyAdded);
     }
 
     let releases = repo_handler.releases().list().send().await?;
     let mut contains_jar_asset = false;
 
-    // Search every asset to check if the releases contain JAR files (a mod file)
+    // Check if the releases contain a JAR file
     'outer: for release in releases {
         for asset in release.assets {
             if asset.name.contains("jar") {
-                // If JAR release is found, set flag to true and break
                 contains_jar_asset = true;
                 break 'outer;
             }
@@ -127,22 +127,22 @@ pub async fn github(
     }
 }
 
-/// Check if `project_id` exists and is a mod, if so add that project ID to `profile`
-/// Returns the project struct
+/// Check if the project of `project_id` exists and is a mod, if so add the project to `profile`
 pub async fn modrinth(
-    modrinth: &Ferinth,
+    modrinth: Arc<Ferinth>,
     project_id: &str,
-    profile: &mut config::structs::Profile,
+    profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<Project> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
-    if profile.mods.iter().any(|mod_| {
-        config::structs::ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
-    }) {
+    if profile
+        .mods
+        .iter()
+        .any(|mod_| ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier)
+    {
         Err(Error::AlreadyAdded)
-    // Check that the project is a mod
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
@@ -164,20 +164,21 @@ pub async fn modrinth(
     }
 }
 
-/// Check if `project_id` exists, if so add that mod to `profile`
-/// Returns the mod struct
+/// Check if the mod of `project_id` exists, if so add that mod to `profile`
 pub async fn curseforge(
-    curseforge: &Furse,
+    curseforge: Arc<Furse>,
     project_id: i32,
-    profile: &mut config::structs::Profile,
+    profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<furse::structures::mod_structs::Mod> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
-    if profile.mods.iter().any(|mod_| {
-        config::structs::ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
-    }) {
+    if profile
+        .mods
+        .iter()
+        .any(|mod_| ModIdentifier::CurseForgeProject(project.id) == mod_.identifier)
+    {
         Err(Error::AlreadyAdded)
     } else {
         profile.mods.push(Mod {
