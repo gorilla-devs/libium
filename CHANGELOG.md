@@ -1,5 +1,17 @@
 # Changelog for Libium
 
+## `1.13.0`
+### 10.05.2022
+
+- Move from octocrab to [octorust](https://crates.io/crates/octorust)
+  - This fixes [#52](https://github.com/theRookieCoder/ferium/issues/52)
+- Many GitHub related functions have had their signatures changed
+- The `upgrade` functions have been slightly updated
+- Removed unnecessary `async`s
+- Replaced many `Vec<_>`s with `&[_]`
+- The add functions now check if mods have the same name too
+  - This fixes [#53](https://github.com/theRookieCoder/ferium/issues/53)
+
 ## `1.12.0`
 ### 09.05.2022
 

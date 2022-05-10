@@ -32,5 +32,5 @@ pub async fn pick_folder(default: &PathBuf, prompt: &str) -> Option<PathBuf> {
         .default(default.display().to_string())
         .interact()
         .ok()
-        .map(|string| string.into())
+        .map(Into::into)
 }

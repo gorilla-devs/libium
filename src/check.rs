@@ -1,13 +1,13 @@
 use crate::config::structs::ModLoader;
 use ferinth::structures::version_structs::{Version, VersionFile};
 use furse::structures::file_structs::File;
-use octocrab::models::repos::{Asset, Release};
-use std::path::PathBuf;
+use octorust::types::{Release, ReleaseAsset};
+use std::path::Path;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
 /// Write `contents` to a file with path `output_dir`/`file_name`
 pub async fn write_mod_file(
-    output_dir: &PathBuf,
+    output_dir: &Path,
     contents: bytes::Bytes,
     file_name: &str,
 ) -> tokio::io::Result<()> {
@@ -35,7 +35,7 @@ fn check_mod_loader(mod_loaders: &[String], to_check: &ModLoader) -> bool {
 }
 
 /// Get the latest compatible file from `files`
-pub async fn curseforge<'a>(
+pub fn curseforge<'a>(
     files: &'a mut Vec<File>,
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
@@ -59,8 +59,8 @@ pub async fn curseforge<'a>(
 }
 
 /// Get the latest compatible version and version file from `versions`
-pub async fn modrinth<'a>(
-    versions: &'a Vec<Version>,
+pub fn modrinth<'a>(
+    versions: &'a [Version],
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
@@ -84,13 +84,13 @@ pub async fn modrinth<'a>(
 }
 
 /// Get the latest compatible asset from `releases`
-pub async fn github<'a>(
-    releases: &'a Vec<Release>,
+pub fn github<'a>(
+    releases: &'a [Release],
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Option<&'a Asset> {
+) -> Option<&'a ReleaseAsset> {
     for release in releases {
         for asset in &release.assets {
             if asset.name.contains("jar")

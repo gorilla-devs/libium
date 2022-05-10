@@ -4,7 +4,7 @@ use ferinth::{
     Ferinth,
 };
 use furse::Furse;
-use octocrab::{models::Repository, repos::RepoHandler};
+use octorust::{repos::Repos, types::FullRepository};
 use reqwest::StatusCode;
 use std::sync::Arc;
 
@@ -17,8 +17,8 @@ pub enum Error {
     DoesNotExist,
     #[error("The project/repository is not a mod")]
     NotAMod,
-    #[error("{}", .0)]
-    GitHubError(octocrab::Error),
+    #[error("GitHub: {}", .0)]
+    GitHubError(#[from] anyhow::Error),
     #[error("{}", .0)]
     ModrinthError(ferinth::Error),
     #[error("{}", .0)]
@@ -53,47 +53,30 @@ impl From<ferinth::Error> for Error {
     }
 }
 
-impl From<octocrab::Error> for Error {
-    fn from(err: octocrab::Error) -> Self {
-        if let octocrab::Error::Http { source, .. } = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::DoesNotExist
-            } else {
-                Self::GitHubError(err)
-            }
-        } else {
-            Self::GitHubError(err)
-        }
-    }
-}
-
 /// Check if the repo of `repo_handler` exists and releases mods, and if so add the repo to `profile`
 pub async fn github(
-    repo_handler: &RepoHandler<'_>,
+    github: Repos,
+    repo_name: (&str, &str),
     profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<Repository> {
-    let repo = repo_handler.get().await?;
+) -> Result<FullRepository> {
+    let repo = github.get(repo_name.0, repo_name.1).await?;
     // Get the name of the repository as a tuple
-    let repo_name_split = repo
-        .full_name
-        .as_ref()
-        .unwrap()
-        .split('/')
-        .collect::<Vec<_>>();
+    let repo_name_split = repo.full_name.split('/').collect::<Vec<_>>();
     let repo_name = (repo_name_split[0].into(), repo_name_split[1].into());
 
     // Check if project has already been added
-    if profile
-        .mods
-        .iter()
-        .any(|mod_| ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier)
-    {
+    if profile.mods.iter().any(|mod_| {
+        mod_.name == repo.name
+            || ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier
+    }) {
         return Err(Error::AlreadyAdded);
     }
 
-    let releases = repo_handler.releases().list().send().await?;
+    let releases = github
+        .list_releases(&repo_name.0, &repo_name.1, 100, 0)
+        .await?;
     let mut contains_jar_asset = false;
 
     // Check if the releases contain a JAR file
@@ -137,11 +120,10 @@ pub async fn modrinth(
 ) -> Result<Project> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
-    if profile
-        .mods
-        .iter()
-        .any(|mod_| ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier)
-    {
+    if profile.mods.iter().any(|mod_| {
+        mod_.name == project.title
+            || ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
+    }) {
         Err(Error::AlreadyAdded)
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
@@ -174,11 +156,9 @@ pub async fn curseforge(
 ) -> Result<furse::structures::mod_structs::Mod> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
-    if profile
-        .mods
-        .iter()
-        .any(|mod_| ModIdentifier::CurseForgeProject(project.id) == mod_.identifier)
-    {
+    if profile.mods.iter().any(|mod_| {
+        mod_.name == project.name || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
+    }) {
         Err(Error::AlreadyAdded)
     } else {
         profile.mods.push(Mod {
