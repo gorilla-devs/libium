@@ -1,7 +1,7 @@
 use crate::config::structs::ModLoader;
 use ferinth::structures::version_structs::{Version, VersionFile};
 use furse::structures::file_structs::File;
-use octorust::types::{Release, ReleaseAsset};
+use octocrab::models::repos::{Asset, Release};
 use std::path::Path;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
@@ -90,7 +90,7 @@ pub fn github<'a>(
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Option<&'a ReleaseAsset> {
+) -> Option<&'a Asset> {
     for release in releases {
         for asset in &release.assets {
             if asset.name.contains("jar")

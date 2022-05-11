@@ -1,10 +1,16 @@
 # Changelog for Libium
 
+## `1.14.0`
+### 11.05.2022
+
+Revert back to octocrab
+
 ## `1.13.0`
 ### 10.05.2022
 
 - Move from octocrab to [octorust](https://crates.io/crates/octorust)
   - This fixes [#52](https://github.com/theRookieCoder/ferium/issues/52)
+  - (I later realise that even though it does, octocrab was fine)
 - Many GitHub related functions have had their signatures changed
 - The `upgrade` functions have been slightly updated
 - Removed unnecessary `async`s

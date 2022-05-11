@@ -7,9 +7,9 @@ use ferinth::{
     Ferinth,
 };
 use furse::{structures::file_structs::File, Furse};
-use octorust::{
-    types::{Release, ReleaseAsset},
-    Client,
+use octocrab::{
+    models::repos::{Asset, Release},
+    Octocrab,
 };
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ pub enum Error {
     #[error("{}", .0)]
     CurseForgeError(#[from] furse::Error),
     #[error("GitHub: {}", .0)]
-    GitHubError(#[from] anyhow::Error),
+    GitHubError(#[from] octocrab::Error),
     #[error("No compatible file was found")]
     NoCompatibleFile,
 }
@@ -47,11 +47,11 @@ impl From<VersionFile> for Downloadable {
         }
     }
 }
-impl From<ReleaseAsset> for Downloadable {
-    fn from(asset: ReleaseAsset) -> Self {
+impl From<Asset> for Downloadable {
+    fn from(asset: Asset) -> Self {
         Self {
             filename: asset.name,
-            download_url: asset.browser_download_url,
+            download_url: asset.browser_download_url.into(),
         }
     }
 }
@@ -132,7 +132,7 @@ pub fn get_latest_compatible_asset(
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Option<(ReleaseAsset, bool)> {
+) -> Option<(Asset, bool)> {
     match check::github(
         releases,
         game_version_to_check,
@@ -161,7 +161,7 @@ pub fn get_latest_compatible_asset(
 pub async fn get_latest_compatible_downloadable(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,
-    github: Arc<Client>,
+    github: Arc<Octocrab>,
     mod_: &Mod,
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
@@ -191,9 +191,12 @@ pub async fn get_latest_compatible_downloadable(
         ),
         ModIdentifier::GitHubRepository(full_name) => get_latest_compatible_asset(
             &github
-                .repos()
-                .list_releases(&full_name.0, &full_name.1, 100, 0)
-                .await?,
+                .repos(&full_name.0, &full_name.1)
+                .releases()
+                .list()
+                .send()
+                .await?
+                .items,
             game_version_to_check,
             mod_loader_to_check,
             mod_.check_game_version,
