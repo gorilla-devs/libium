@@ -3,7 +3,7 @@ pub mod structs;
 use std::path::PathBuf;
 use tokio::{
     fs::{create_dir_all, File, OpenOptions},
-    io::{AsyncSeekExt, AsyncWriteExt, Result},
+    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, Result},
 };
 
 /// Get the config file's path
@@ -54,6 +54,18 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
                 .await
         },
     }
+}
+
+/// Read the config file to string
+pub async fn read_file(config_file: &mut File) -> Result<String> {
+    let mut buffer = String::new();
+    config_file.read_to_string(&mut buffer).await?;
+    Ok(buffer)
+}
+
+/// Deserialise the given `input` into a config struct
+pub fn deserialise(input: &str) -> serde_json::error::Result<structs::Config> {
+    serde_json::from_str(input)
 }
 
 /// Serialise `config` and write it to `config_file`

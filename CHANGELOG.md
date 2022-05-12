@@ -1,5 +1,14 @@
 # Changelog for Libium
 
+## `1.14.1`
+### 12.05.2022
+
+- Changed `misc::get_mods_dir()` to `misc::get_minecraft_dir()`, the new function only returns the default Minecraft instance directory
+- Added `config::read_file()` and `config::deserialise()`
+- The add commands now return the latest compatible _ of the mod
+  - Added `Error::Incompatible` to go along with this
+- The curseforge add command checks if the project is a mod using the same method as the github add command
+
 ## `1.14.0`
 ### 11.05.2022
 

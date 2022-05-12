@@ -20,21 +20,16 @@ pub async fn get_major_mc_versions(mut count: usize) -> Result<Vec<String>, feri
     Ok(major_versions)
 }
 
-/// Get the Minecraft mods directory based on the current OS
+/// Get the default Minecraft instance directory based on the current OS
 /// If the OS doesn't match "macos", "linux", or "windows", this function will panic
-pub fn get_mods_dir() -> PathBuf {
+pub fn get_minecraft_dir() -> PathBuf {
     match std::env::consts::OS {
         "macos" => HOME
             .join("Library")
             .join("Application Support")
-            .join("minecraft")
-            .join("mods"),
-        "linux" => HOME.join(".minecraft").join("mods"),
-        "windows" => HOME
-            .join("AppData")
-            .join("Roaming")
-            .join(".minecraft")
-            .join("mods"),
+            .join("minecraft"),
+        "linux" => HOME.join(".minecraft"),
+        "windows" => HOME.join("AppData").join("Roaming").join(".minecraft"),
         _ => unreachable!(),
     }
 }

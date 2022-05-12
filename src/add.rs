@@ -1,20 +1,31 @@
-use crate::config::structs::{Mod, ModIdentifier, Profile};
+use crate::{
+    config::structs::{Mod, ModIdentifier, ModLoader, Profile},
+    upgrade,
+};
 use ferinth::{
-    structures::project_structs::{Project, ProjectType},
+    structures::{
+        project_structs::{Project, ProjectType},
+        version_structs::Version,
+    },
     Ferinth,
 };
-use furse::Furse;
-use octocrab::{models::Repository, repos::RepoHandler};
+use furse::{structures::file_structs::File, Furse};
+use octocrab::{
+    models::{repos::Asset, Repository},
+    repos::RepoHandler,
+};
 use reqwest::StatusCode;
 use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Mod already added to profile")]
+    #[error("The project/repository has already been added")]
     AlreadyAdded,
-    #[error("The provided mod does not exist")]
+    #[error("The project/repository does not exist")]
     DoesNotExist,
+    #[error("The project/repository is not compatible")]
+    Incompatible,
     #[error("The project/repository is not a mod")]
     NotAMod,
     #[error("{}", .0)]
@@ -67,13 +78,15 @@ impl From<octocrab::Error> for Error {
     }
 }
 
-/// Check if the repo of `repo_handler` exists and releases mods, and if so add the repo to `profile`
+/// Check if the repo of `repo_handler` exists, releases mods, and is compatible with the current profile
+///
+/// Returns the repository and the latest compatible asset
 pub async fn github(
     repo_handler: &RepoHandler<'_>,
     profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<Repository> {
+) -> Result<(Repository, Asset)> {
     let repo = repo_handler.get().await?;
     let repo_name = (
         repo.owner.as_ref().unwrap().login.clone(),
@@ -92,8 +105,8 @@ pub async fn github(
     let mut contains_jar_asset = false;
 
     // Check if the releases contain a JAR file
-    'outer: for release in releases {
-        for asset in release.assets {
+    'outer: for release in &releases {
+        for asset in &release.assets {
             if asset.name.contains("jar") {
                 contains_jar_asset = true;
                 break 'outer;
@@ -102,6 +115,15 @@ pub async fn github(
     }
 
     if contains_jar_asset {
+        let asset = upgrade::get_latest_compatible_asset(
+            &releases,
+            &profile.game_version,
+            &profile.mod_loader,
+            should_check_game_version,
+            should_check_mod_loader,
+        )
+        .ok_or(Error::Incompatible)?
+        .0;
         profile.mods.push(Mod {
             name: repo.name.clone(),
             identifier: ModIdentifier::GitHubRepository(repo_name),
@@ -116,20 +138,22 @@ pub async fn github(
                 should_check_mod_loader
             },
         });
-        Ok(repo)
+        Ok((repo, asset))
     } else {
         Err(Error::NotAMod)
     }
 }
 
-/// Check if the project of `project_id` exists and is a mod, if so add the project to `profile`
+/// Check if the project of `project_id` exists, is a mod, and is compatible with the current profile
+///
+/// Returns the project and the latest compatible version
 pub async fn modrinth(
     modrinth: Arc<Ferinth>,
     project_id: &str,
     profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<Project> {
+) -> Result<(Project, Version)> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -140,6 +164,15 @@ pub async fn modrinth(
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
+        let version = upgrade::get_latest_compatible_version(
+            &modrinth.list_versions(&project.id).await?,
+            &profile.game_version,
+            &profile.mod_loader,
+            should_check_game_version,
+            should_check_mod_loader,
+        )
+        .ok_or(Error::Incompatible)?
+        .1;
         profile.mods.push(Mod {
             name: project.title.clone(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
@@ -154,25 +187,49 @@ pub async fn modrinth(
                 should_check_mod_loader
             },
         });
-        Ok(project)
+        Ok((project, version))
     }
 }
 
-/// Check if the mod of `project_id` exists, if so add that mod to `profile`
+/// Check if the mod of `project_id` exists, is a mod, and is compatible with the current profile
+///
+/// Returns the mod and the latest compatible file
 pub async fn curseforge(
     curseforge: Arc<Furse>,
     project_id: i32,
     profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<furse::structures::mod_structs::Mod> {
+) -> Result<(furse::structures::mod_structs::Mod, File)> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name == project.name || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
-        Err(Error::AlreadyAdded)
-    } else {
+        return Err(Error::AlreadyAdded);
+    }
+
+    let files = curseforge.get_mod_files(project.id).await?;
+    let mut contains_jar_asset = false;
+
+    // Check if the files are JAR files
+    for file in &files {
+        if file.file_name.contains("jar") {
+            contains_jar_asset = true;
+            break;
+        }
+    }
+
+    if contains_jar_asset {
+        let file = upgrade::get_latest_compatible_file(
+            files,
+            &profile.game_version,
+            &profile.mod_loader,
+            should_check_game_version,
+            should_check_mod_loader,
+        )
+        .ok_or(Error::Incompatible)?
+        .0;
         profile.mods.push(Mod {
             name: project.name.clone(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
@@ -187,6 +244,8 @@ pub async fn curseforge(
                 should_check_mod_loader
             },
         });
-        Ok(project)
+        Ok((project, file))
+    } else {
+        Err(Error::NotAMod)
     }
 }
