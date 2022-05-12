@@ -1,5 +1,5 @@
 use crate::{
-    config::structs::{Mod, ModIdentifier, ModLoader, Profile},
+    config::structs::{Mod, ModIdentifier, Profile},
     upgrade,
 };
 use ferinth::{
