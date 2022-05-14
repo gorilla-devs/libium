@@ -2,25 +2,6 @@ use crate::config::structs::ModLoader;
 use ferinth::structures::version_structs::{Version, VersionFile};
 use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
-use std::path::Path;
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
-
-/// Write `contents` to a file with path `output_dir`/`file_name`
-pub async fn write_mod_file(
-    output_dir: &Path,
-    contents: bytes::Bytes,
-    file_name: &str,
-) -> tokio::io::Result<()> {
-    let mut mod_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(output_dir.join(file_name))
-        .await?;
-    mod_file.write_all(&contents).await?;
-    Ok(())
-}
 
 /// Check if the target `to_check` version is present in `game_versions`.
 fn check_game_version(game_versions: &[String], to_check: &str) -> bool {

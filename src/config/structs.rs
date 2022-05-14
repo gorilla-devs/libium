@@ -6,8 +6,28 @@ use std::path::PathBuf;
 pub struct Config {
     /// The index of the active profile
     pub active_profile: usize,
+    /// The index of the active modpack
+    pub active_modpack: usize,
     /// The profiles
     pub profiles: Vec<Profile>,
+    /// The modpacks
+    pub modpacks: Vec<Modpack>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Modpack {
+    /// The modpack's name
+    pub name: String,
+    /// The Minecraft instance directory to install to
+    pub output_dir: PathBuf,
+    /// The project ID of the modpack
+    pub identifier: ModpackIdentifier,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub enum ModpackIdentifier {
+    CurseForgeModpack(i32),
+    // ModrinthModpack(String),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

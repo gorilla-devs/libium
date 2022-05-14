@@ -1,5 +1,14 @@
 # Changelog for Libium
 
+## `1.15.0`
+### 14.05.2022
+
+- Added minor versions to all dependencies
+- Moved `check` and `upgrade` to `upgrade::check` and `upgrade::mod_downloadable`
+- Moved the `Downloadable` to `upgrade`, it also has a new `download()` function
+- Added modpacks to the config
+- Added `modpack` with a curseforge modpack and a function to add that to the config
+
 ## `1.14.1`
 ### 12.05.2022
 

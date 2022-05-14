@@ -36,7 +36,9 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
                 &mut file,
                 &structs::Config {
                     active_profile: 0,
+                    active_modpack: 0,
                     profiles: Vec::new(),
+                    modpacks: Vec::new(),
                 },
             )
             .await?;

@@ -1,6 +1,6 @@
 use crate::{
     config::structs::{Mod, ModIdentifier, Profile},
-    upgrade,
+    upgrade::mod_downloadable,
 };
 use ferinth::{
     structures::{
@@ -115,7 +115,7 @@ pub async fn github(
     }
 
     if contains_jar_asset {
-        let asset = upgrade::get_latest_compatible_asset(
+        let asset = mod_downloadable::get_latest_compatible_asset(
             &releases,
             &profile.game_version,
             &profile.mod_loader,
@@ -164,7 +164,7 @@ pub async fn modrinth(
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
-        let version = upgrade::get_latest_compatible_version(
+        let version = mod_downloadable::get_latest_compatible_version(
             &modrinth.list_versions(&project.id).await?,
             &profile.game_version,
             &profile.mod_loader,
@@ -210,18 +210,18 @@ pub async fn curseforge(
     }
 
     let files = curseforge.get_mod_files(project.id).await?;
-    let mut contains_jar_asset = false;
+    let mut contains_jar_file = false;
 
     // Check if the files are JAR files
     for file in &files {
         if file.file_name.contains("jar") {
-            contains_jar_asset = true;
+            contains_jar_file = true;
             break;
         }
     }
 
-    if contains_jar_asset {
-        let file = upgrade::get_latest_compatible_file(
+    if contains_jar_file {
+        let file = mod_downloadable::get_latest_compatible_file(
             files,
             &profile.game_version,
             &profile.mod_loader,

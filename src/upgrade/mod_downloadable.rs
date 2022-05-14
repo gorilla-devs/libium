@@ -1,7 +1,5 @@
-use crate::{
-    check,
-    config::structs::{Mod, ModIdentifier, ModLoader},
-};
+use super::{check, Downloadable};
+use crate::config::structs::{Mod, ModIdentifier, ModLoader};
 use ferinth::{
     structures::version_structs::{Version, VersionFile},
     Ferinth,
@@ -25,36 +23,6 @@ pub enum Error {
     NoCompatibleFile,
 }
 type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug, Clone)]
-pub struct Downloadable {
-    pub filename: String,
-    pub download_url: String,
-}
-impl From<File> for Downloadable {
-    fn from(file: File) -> Self {
-        Self {
-            filename: file.file_name,
-            download_url: file.download_url,
-        }
-    }
-}
-impl From<VersionFile> for Downloadable {
-    fn from(file: VersionFile) -> Self {
-        Self {
-            filename: file.filename,
-            download_url: file.url,
-        }
-    }
-}
-impl From<Asset> for Downloadable {
-    fn from(asset: Asset) -> Self {
-        Self {
-            filename: asset.name,
-            download_url: asset.browser_download_url.into(),
-        }
-    }
-}
 
 /// Get the latest compatible version and version file of the provided `project_id`.
 /// Also returns whether Fabric backwards compatibility was used
@@ -158,6 +126,8 @@ pub fn get_latest_compatible_asset(
     }
 }
 
+/// Get the latest compatible downloadable from the `mod_` provided.
+/// Also returns whether fabric backwards compatibility was used
 pub async fn get_latest_compatible_downloadable(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,

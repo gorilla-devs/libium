@@ -1,8 +1,9 @@
 pub mod add;
-pub mod check;
 pub mod config;
 pub mod file_picker;
 pub mod misc;
+pub mod modpack;
+pub mod mutex_ext;
 pub mod upgrade;
 
 lazy_static::lazy_static! {
