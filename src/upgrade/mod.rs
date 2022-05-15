@@ -4,10 +4,10 @@ pub mod modpack_downloadable;
 
 use bytes::Bytes;
 use ferinth::structures::version_structs::VersionFile;
-use furse::structures::file_structs::File;
+use furse::{structures::file_structs::File, Furse};
 use octocrab::models::repos::Asset;
 use size::Size;
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
 #[derive(Debug, thiserror::Error)]
@@ -80,5 +80,24 @@ impl Downloadable {
             .await?;
         mod_file.write_all(&contents).await?;
         Ok((size, self.filename))
+    }
+
+    pub async fn from_ids(
+        curseforge: Arc<Furse>,
+        project_id: i32,
+        file_id: i32,
+    ) -> Result<Self, furse::Error> {
+        let url = curseforge.file_download_url(project_id, file_id).await?;
+        Ok(Self {
+            filename: url
+                .path_segments()
+                .unwrap()
+                .collect::<Vec<_>>()
+                .iter()
+                .last()
+                .unwrap()
+                .to_string(),
+            download_url: url.into(),
+        })
     }
 }

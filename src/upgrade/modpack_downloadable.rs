@@ -51,11 +51,11 @@ where
     )?)?)?)
 }
 
-// pub async fn get_version_ids(
+// pub async fn get_modrinth_manifest(
 //     modrinth: Arc<Ferinth>,
 //     project_id: &str,
 //     progress: F,
-// ) -> Result<Vec<String>>
+// ) -> Result<Manifest>
 // where
 //     F: Fn(usize, u64),
 // {

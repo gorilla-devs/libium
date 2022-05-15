@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## `1.15.1`
+### 15.05.2022
+
+- Update to Furse `1.1.2`
+- Add `from_ids` to create a downloadable from a curseforge project and file id
+
 ## `1.15.0`
 ### 14.05.2022
 
