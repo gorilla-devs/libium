@@ -1,5 +1,12 @@
 # Changelog for Libium
 
+## `1.15.2`
+### 16.05.2022
+
+- `Downloadable::download()` now directly downloads to the output file as a `.part`, it will rename it back to the actual filename after it finishes downloading
+- The `progress` closure is now a `total` and `update` closure
+- `Downloadable::from_ids()` now properly decodes percent characters (e.g. `%20` -> ` `)
+
 ## `1.15.1`
 ### 15.05.2022
 

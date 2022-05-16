@@ -27,13 +27,15 @@ pub enum Error {
 }
 type Result<T> = std::result::Result<T, Error>;
 
-pub async fn get_curseforge_manifest<F>(
+pub async fn get_curseforge_manifest<TF, UF>(
     curseforge: Arc<Furse>,
     project_id: i32,
-    progress: F,
+    total: TF,
+    update: UF,
 ) -> Result<Manifest>
 where
-    F: Fn(usize, u64) + Send,
+    TF: Fn(u64) + Send,
+    UF: Fn(usize) + Send,
 {
     let latest_file: Downloadable = curseforge
         .get_mod_files(project_id)
@@ -44,7 +46,7 @@ where
     create_dir_all(&cache_dir).await?;
     let modpack_path = cache_dir.join(&latest_file.filename);
     if !modpack_path.exists() {
-        latest_file.download(&cache_dir, progress).await?;
+        latest_file.download(&cache_dir, total, update).await?;
     }
     Ok(deser_manifest(&read_manifest_file(File::open(
         modpack_path,

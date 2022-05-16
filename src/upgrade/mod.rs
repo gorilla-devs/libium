@@ -2,13 +2,16 @@ pub mod check;
 pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
-use bytes::Bytes;
 use ferinth::structures::version_structs::VersionFile;
 use furse::{structures::file_structs::File, Furse};
 use octocrab::models::repos::Asset;
 use size::Size;
 use std::{path::Path, sync::Arc};
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use tokio::{
+    fs::{rename, OpenOptions},
+    io::AsyncWriteExt,
+};
+use urlencoding::decode;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {
@@ -52,36 +55,44 @@ impl From<Asset> for Downloadable {
 impl Downloadable {
     /// Consumes `self` and downloads the file to the `output_dir`.
     ///
-    /// Also provide a closure `update` to make a progress bar.
-    /// The arguments provided are the amount the amount by which the data has increased, and the total amount of the data (zero if not known).
+    /// The `total` closure is called once if the content length is known.
+    /// The `update` closure is called with the chunk length whenever a chunk is written
     ///
     /// Returns the size of the file and the filename
-    pub async fn download<F>(
+    pub async fn download<TF, UF>(
         self,
         output_dir: &Path,
-        update: F,
+        total: TF,
+        update: UF,
     ) -> DownloadResult<(Size<usize>, String)>
     where
-        F: Fn(usize, u64) + Send,
+        TF: Fn(u64) + Send,
+        UF: Fn(usize) + Send,
     {
-        let mut contents = Bytes::new();
         let mut response = reqwest::get(&self.download_url).await?;
-        while let Some(chunk) = response.chunk().await? {
-            update(chunk.len(), response.content_length().unwrap_or(0));
-            contents = [contents, chunk].concat().into();
-        }
-        let size = Size::Bytes(contents.len());
-        let mut mod_file = OpenOptions::new()
+        let out_file_path = output_dir.join(&self.filename).with_extension("part");
+        let mut out_file = OpenOptions::new()
             .read(true)
             .write(true)
-            .truncate(true)
+            .append(true)
             .create(true)
-            .open(output_dir.join(&self.filename))
+            .open(&out_file_path)
             .await?;
-        mod_file.write_all(&contents).await?;
+        if let Some(total_len) = response.content_length() {
+            total(total_len);
+        }
+        let mut size = 0;
+        while let Some(chunk) = response.chunk().await? {
+            update(chunk.len());
+            size += chunk.len();
+            out_file.write_all(&chunk).await?;
+        }
+        rename(&out_file_path, output_dir.join(&self.filename)).await?;
+        let size = Size::Bytes(size);
         Ok((size, self.filename))
     }
 
+    /// Get a `Downloadable` from a project and file ID
     pub async fn from_ids(
         curseforge: Arc<Furse>,
         project_id: i32,
@@ -89,14 +100,16 @@ impl Downloadable {
     ) -> Result<Self, furse::Error> {
         let url = curseforge.file_download_url(project_id, file_id).await?;
         Ok(Self {
-            filename: url
-                .path_segments()
-                .unwrap()
-                .collect::<Vec<_>>()
-                .iter()
-                .last()
-                .unwrap()
-                .to_string(),
+            filename: decode(
+                url.path_segments()
+                    .unwrap()
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .last()
+                    .unwrap(),
+            )
+            .unwrap()
+            .into(),
             download_url: url.into(),
         })
     }
