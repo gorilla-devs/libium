@@ -20,6 +20,8 @@ pub struct Modpack {
     pub name: String,
     /// The Minecraft instance directory to install to
     pub output_dir: PathBuf,
+    /// Whether to install overrides
+    pub install_overrides: bool,
     /// The project ID of the modpack
     pub identifier: ModpackIdentifier,
 }

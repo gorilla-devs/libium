@@ -58,6 +58,7 @@ pub async fn curseforge(
     config: &mut Config,
     project_id: i32,
     output_dir: PathBuf,
+    install_overrides: bool,
 ) -> Result<Mod> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
@@ -84,6 +85,7 @@ pub async fn curseforge(
             name: project.name.clone(),
             identifier: ModpackIdentifier::CurseForgeModpack(project.id),
             output_dir,
+            install_overrides,
         });
         Ok(project)
     } else {
@@ -99,6 +101,7 @@ pub async fn modrinth(
     config: &mut Config,
     project_id: &str,
     output_dir: PathBuf,
+    install_overrides: bool,
 ) -> Result<Project> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
@@ -114,6 +117,7 @@ pub async fn modrinth(
             name: project.title.clone(),
             identifier: ModpackIdentifier::ModrinthModpack(project.id.clone()),
             output_dir,
+            install_overrides,
         });
         Ok(project)
     }

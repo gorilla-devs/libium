@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## `1.15.4`
+### 17.05.2022
+
+- Add `install_overrides` field to `Modpack` in config
+- Change `get_curseforge_manifest` and `get_modrinth_manifest` to `download_curseforge_modpack` and `download_modrinth_modpack` respectively
+
 ## `1.15.3`
 ### 16.05.2022
 

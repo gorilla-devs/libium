@@ -1,15 +1,8 @@
 use super::Downloadable;
-use crate::{
-    modpack::{
-        curseforge::{deser_manifest, read_manifest_file, structs::Manifest},
-        modrinth::{deser_metadata, read_metadata_file, structs::Metadata},
-    },
-    version_ext::VersionExt,
-    HOME,
-};
+use crate::{version_ext::VersionExt, HOME};
 use ferinth::Ferinth;
 use furse::Furse;
-use std::{fs::File, path::PathBuf, sync::Arc};
+use std::{fs::File, sync::Arc};
 use tokio::fs::create_dir_all;
 
 #[derive(Debug, thiserror::Error)]
@@ -31,12 +24,12 @@ pub enum Error {
 }
 type Result<T> = std::result::Result<T, Error>;
 
-pub async fn get_curseforge_manifest<TF, UF>(
+pub async fn download_curseforge_modpack<TF, UF>(
     curseforge: Arc<Furse>,
     project_id: i32,
     total: TF,
     update: UF,
-) -> Result<Manifest>
+) -> Result<File>
 where
     TF: Fn(u64) + Send,
     UF: Fn(usize) + Send,
@@ -53,17 +46,15 @@ where
     if !modpack_path.exists() {
         latest_file.download(&cache_dir, total, update).await?;
     }
-    Ok(deser_manifest(&read_manifest_file(File::open(
-        modpack_path,
-    )?)?)?)
+    Ok(File::open(modpack_path)?)
 }
 
-pub async fn get_modrinth_manifest<TF, UF>(
+pub async fn download_modrinth_modpack<TF, UF>(
     modrinth: Arc<Ferinth>,
     project_id: &str,
     total: TF,
     update: UF,
-) -> Result<Metadata>
+) -> Result<File>
 where
     TF: Fn(u64) + Send,
     UF: Fn(usize) + Send,
@@ -75,7 +66,7 @@ where
         .into_version_file();
     let version_file = Downloadable {
         download_url: version_file.url,
-        output: PathBuf::from(version_file.filename),
+        output: version_file.filename.into(),
         size: Some(version_file.size as u64),
     };
 
@@ -85,7 +76,5 @@ where
     if !modpack_path.exists() {
         version_file.download(&cache_dir, total, update).await?;
     }
-    Ok(deser_metadata(&read_metadata_file(File::open(
-        modpack_path,
-    )?)?)?)
+    Ok(File::open(modpack_path)?)
 }
