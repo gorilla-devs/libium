@@ -1,12 +1,13 @@
 pub mod structs;
 
 use std::path::PathBuf;
+use structs::Config;
 use tokio::{
     fs::{create_dir_all, File, OpenOptions},
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, Result},
 };
 
-/// Get the config file's path
+/// Get the default config file path
 pub fn file_path() -> PathBuf {
     crate::HOME
         .join(".config")
@@ -14,7 +15,7 @@ pub fn file_path() -> PathBuf {
         .join("config.json")
 }
 
-/// Get the config file. If it doesn't exist, an empty config will be created and returned
+/// Get the config file. If it doesn't exist, an empty config will be created
 pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
     match config_file_path.exists() {
         // If the file doesn't exist
@@ -34,7 +35,7 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
             // Write an empty config to the config file
             write_file(
                 &mut file,
-                &structs::Config {
+                &Config {
                     active_profile: 0,
                     active_modpack: 0,
                     profiles: Vec::new(),
@@ -52,13 +53,13 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
                 .write(true)
                 .truncate(false)
                 .create(false)
-                .open(config_file_path)
+                .open(&config_file_path)
                 .await
         },
     }
 }
 
-/// Read the config file to string
+/// Read the config file to a string
 pub async fn read_file(config_file: &mut File) -> Result<String> {
     let mut buffer = String::new();
     config_file.read_to_string(&mut buffer).await?;
@@ -66,14 +67,14 @@ pub async fn read_file(config_file: &mut File) -> Result<String> {
 }
 
 /// Deserialise the given `input` into a config struct
-pub fn deserialise(input: &str) -> serde_json::error::Result<structs::Config> {
+pub fn deserialise(input: &str) -> serde_json::error::Result<Config> {
     serde_json::from_str(input)
 }
 
 /// Serialise `config` and write it to `config_file`
-pub async fn write_file(config_file: &mut File, config: &structs::Config) -> Result<()> {
-    let serialised = serde_json::to_string_pretty(config)?; // Serialise the config
+pub async fn write_file(config_file: &mut File, config: &Config) -> Result<()> {
+    let serialised = serde_json::to_string_pretty(config)?;
     config_file.set_len(0).await?; // Truncate file to 0
-    config_file.rewind().await?; // Rewind the file
-    config_file.write_all(serialised.as_bytes()).await // Write the config to the config file
+    config_file.rewind().await?; // Set the cursor to the beginning
+    config_file.write_all(serialised.as_bytes()).await
 }

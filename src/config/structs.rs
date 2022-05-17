@@ -27,18 +27,18 @@ pub struct Modpack {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum ModpackIdentifier {
     CurseForgeModpack(i32),
-    // ModrinthModpack(String),
+    ModrinthModpack(String),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Profile {
     /// The profile's name
     pub name: String,
-    /// The directory to download mod JARs to
+    /// The directory to download mod files to
     pub output_dir: PathBuf,
-    /// Check if mod JARs are compatible with this Minecraft version
+    /// Only download if the mod file is compatible with this Minecraft version
     pub game_version: String,
-    /// Check if mod JARs are compatible with this mod loader
+    /// Only download  if the mod file is compatible with this mod loader
     pub mod_loader: ModLoader,
     /// A list of all the mods configured
     pub mods: Vec<Mod>,
@@ -48,7 +48,7 @@ pub struct Profile {
 pub struct Mod {
     /// The name the mod
     pub name: String,
-    /// An enum to identify the mod based on a mod source
+    /// Identify the mod based on a mod source
     pub identifier: ModIdentifier,
     /// Whether to check for game version compatibility
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,7 +58,6 @@ pub struct Mod {
     pub check_mod_loader: Option<bool>,
 }
 
-/// A mod identifier, which can be from 3 different sources
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum ModIdentifier {
     CurseForgeProject(i32),

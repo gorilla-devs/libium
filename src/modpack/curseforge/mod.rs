@@ -5,9 +5,9 @@ use std::io::{Read, Seek};
 use structs::Manifest;
 use zip::{result::ZipResult, ZipArchive};
 
-pub fn read_manifest_file(file: impl Read + Seek) -> ZipResult<String> {
+pub fn read_manifest_file(input: impl Read + Seek) -> ZipResult<String> {
     let mut buffer = String::new();
-    ZipArchive::new(file)?
+    ZipArchive::new(input)?
         .by_name("manifest.json")?
         .read_to_string(&mut buffer)?;
     Ok(buffer)

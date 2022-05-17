@@ -1,4 +1,4 @@
-use crate::config::structs::ModLoader;
+use crate::{config::structs::ModLoader, version_ext::VersionExt};
 use ferinth::structures::version_structs::{Version, VersionFile};
 use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
@@ -53,12 +53,7 @@ pub fn modrinth<'a>(
             && (Some(false) == should_check_mod_loader
                 || check_mod_loader(&version.loaders, mod_loader_to_check))
         {
-            for file in &version.files {
-                if file.primary {
-                    return Some((file, version));
-                }
-            }
-            return Some((&version.files[0], version));
+            return Some((version.get_version_file(), version));
         }
     }
     None

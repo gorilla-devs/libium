@@ -2,11 +2,15 @@ pub mod check;
 pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
+use crate::modpack::modrinth::structs::ModpackFile;
 use ferinth::structures::version_structs::VersionFile;
 use furse::{structures::file_structs::File, Furse};
 use octocrab::models::repos::Asset;
 use size::Size;
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tokio::{
     fs::{rename, OpenOptions},
     io::AsyncWriteExt,
@@ -14,40 +18,66 @@ use tokio::{
 use urlencoding::decode;
 
 #[derive(Debug, thiserror::Error)]
-pub enum DownloadError {
+pub enum Error {
     #[error("{}", .0)]
     ReqwestError(#[from] reqwest::Error),
     #[error("{}", .0)]
     IOError(#[from] std::io::Error),
 }
-type DownloadResult<T> = std::result::Result<T, DownloadError>;
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
 pub struct Downloadable {
-    pub filename: String,
+    /// A URL to download the file from
     pub download_url: String,
+    /// Where to output the file relative to the output directory (Minecraft instance directory)
+    pub output: PathBuf,
+    /// The size of the file in bytes
+    pub size: Option<u64>,
 }
 impl From<File> for Downloadable {
     fn from(file: File) -> Self {
         Self {
-            filename: file.file_name,
             download_url: file.download_url,
+            output: PathBuf::from(if file.file_name.ends_with(".zip") {
+                "resourcepacks"
+            } else {
+                "mods"
+            })
+            .join(file.file_name),
+            size: Some(file.file_length),
         }
     }
 }
 impl From<VersionFile> for Downloadable {
     fn from(file: VersionFile) -> Self {
         Self {
-            filename: file.filename,
             download_url: file.url,
+            output: PathBuf::from(if file.filename.ends_with(".zip") {
+                "resourcepacks"
+            } else {
+                "mods"
+            })
+            .join(file.filename),
+            size: Some(file.size as u64),
+        }
+    }
+}
+impl From<ModpackFile> for Downloadable {
+    fn from(file: ModpackFile) -> Self {
+        Self {
+            download_url: file.downloads[0].clone().into(),
+            output: file.path,
+            size: Some(file.file_size),
         }
     }
 }
 impl From<Asset> for Downloadable {
     fn from(asset: Asset) -> Self {
         Self {
-            filename: asset.name,
             download_url: asset.browser_download_url.into(),
+            output: PathBuf::from("mods").join(asset.name),
+            size: Some(asset.size as u64),
         }
     }
 }
@@ -64,53 +94,75 @@ impl Downloadable {
         output_dir: &Path,
         total: TF,
         update: UF,
-    ) -> DownloadResult<(Size<usize>, String)>
+    ) -> Result<(Option<Size<u64>>, String)>
     where
         TF: Fn(u64) + Send,
         UF: Fn(usize) + Send,
     {
+        let mut file_size = None;
+        if let Some(size) = self.size {
+            total(size);
+            file_size = Some(size);
+        }
         let mut response = reqwest::get(&self.download_url).await?;
-        let out_file_path = output_dir.join(&self.filename).with_extension("part");
-        let mut out_file = OpenOptions::new()
+        if let Some(size) = response.content_length() {
+            if file_size.is_none() {
+                total(size);
+                file_size = Some(size);
+            }
+        }
+        let out_file_path = output_dir.join(&self.output);
+        let temp_file_path = out_file_path.with_extension("part");
+        let mut temp_file = OpenOptions::new()
             .read(true)
             .write(true)
             .append(true)
             .create(true)
-            .open(&out_file_path)
+            .open(&temp_file_path)
             .await?;
-        if let Some(total_len) = response.content_length() {
-            total(total_len);
-        }
-        let mut size = 0;
         while let Some(chunk) = response.chunk().await? {
             update(chunk.len());
-            size += chunk.len();
-            out_file.write_all(&chunk).await?;
+            temp_file.write_all(&chunk).await?;
         }
-        rename(&out_file_path, output_dir.join(&self.filename)).await?;
-        let size = Size::Bytes(size);
-        Ok((size, self.filename))
+        rename(&temp_file_path, out_file_path).await?;
+        Ok((
+            file_size.map(Size::Bytes),
+            self.output
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+        ))
     }
 
-    /// Get a `Downloadable` from a project and file ID
-    pub async fn from_ids(
+    /// Get a `Downloadable` from a CurseForge project and file ID
+    pub async fn from_file_id(
         curseforge: Arc<Furse>,
         project_id: i32,
         file_id: i32,
-    ) -> Result<Self, furse::Error> {
+    ) -> std::result::Result<Self, furse::Error> {
         let url = curseforge.file_download_url(project_id, file_id).await?;
-        Ok(Self {
-            filename: decode(
-                url.path_segments()
-                    .unwrap()
-                    .collect::<Vec<_>>()
-                    .iter()
-                    .last()
-                    .unwrap(),
-            )
+        let segments = url.path_segments().unwrap().collect::<Vec<_>>();
+        let filename = decode(segments.iter().last().unwrap())
             .unwrap()
-            .into(),
-            download_url: url.into(),
+            .into_owned();
+        Ok(Self {
+            download_url: url.clone().into(),
+            output: PathBuf::from(if filename.ends_with(".zip") {
+                "resourcepacks"
+            } else {
+                "mods"
+            })
+            .join(filename),
+            size: None,
         })
+    }
+
+    pub fn filename(&self) -> String {
+        self.output
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     }
 }

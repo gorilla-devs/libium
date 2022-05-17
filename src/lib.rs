@@ -5,6 +5,7 @@ pub mod misc;
 pub mod modpack;
 pub mod mutex_ext;
 pub mod upgrade;
+pub mod version_ext;
 
 lazy_static::lazy_static! {
     pub static ref HOME: std::path::PathBuf = home::home_dir().expect("Could not get user's home directory");

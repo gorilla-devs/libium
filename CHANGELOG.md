@@ -1,5 +1,13 @@
 # Changelog for Libium
 
+## `1.15.3`
+### 16.05.2022
+
+- Added Modrinth modpacks
+- Modpack add commands only return the project struct now
+- Change `Downloadable::filename` to `output` which will include the path from the instance directory
+- Added `Downloadable::size` for the file size
+
 ## `1.15.2`
 ### 16.05.2022
 

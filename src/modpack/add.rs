@@ -1,8 +1,9 @@
 use crate::config::structs::{Config, Modpack, ModpackIdentifier};
-use furse::{
-    structures::{file_structs::File, mod_structs::Mod},
-    Furse,
+use ferinth::{
+    structures::project_structs::{Project, ProjectType},
+    Ferinth,
 };
+use furse::{structures::mod_structs::Mod, Furse};
 use reqwest::StatusCode;
 use std::{path::PathBuf, sync::Arc};
 
@@ -49,15 +50,15 @@ impl From<ferinth::Error> for Error {
     }
 }
 
-/// Check if the project of `project_id` exists and is a modpack
+/// Check if the project of `project_id` exists and is a modpack. If so, add it to `config`
 ///
-/// Returns the modpack and the latest file
+/// Returns the project struct
 pub async fn curseforge(
     curseforge: Arc<Furse>,
     config: &mut Config,
     project_id: i32,
     output_dir: PathBuf,
-) -> Result<(Mod, File)> {
+) -> Result<Mod> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
     if config.modpacks.iter().any(|modpack| {
@@ -67,7 +68,7 @@ pub async fn curseforge(
         return Err(Error::AlreadyAdded);
     }
 
-    let mut files = curseforge.get_mod_files(project.id).await?;
+    let files = curseforge.get_mod_files(project.id).await?;
     let mut contains_zip_file = false;
 
     // Check if the files are zip files
@@ -84,8 +85,36 @@ pub async fn curseforge(
             identifier: ModpackIdentifier::CurseForgeModpack(project.id),
             output_dir,
         });
-        Ok((project, files.swap_remove(0)))
+        Ok(project)
     } else {
         Err(Error::NotAModpack)
+    }
+}
+
+/// Check if the project of `project_id` exists and is a modpack. If so, add it to `config`
+///
+/// Returns the project struct
+pub async fn modrinth(
+    modrinth: Arc<Ferinth>,
+    config: &mut Config,
+    project_id: &str,
+    output_dir: PathBuf,
+) -> Result<Project> {
+    let project = modrinth.get_project(project_id).await?;
+    // Check if project has already been added
+    if config.modpacks.iter().any(|modpack| {
+        modpack.name == project.title
+            || ModpackIdentifier::ModrinthModpack(project.id.clone()) == modpack.identifier
+    }) {
+        Err(Error::AlreadyAdded)
+    } else if project.project_type != ProjectType::Modpack {
+        Err(Error::NotAModpack)
+    } else {
+        config.modpacks.push(Modpack {
+            name: project.title.clone(),
+            identifier: ModpackIdentifier::ModrinthModpack(project.id.clone()),
+            output_dir,
+        });
+        Ok(project)
     }
 }
