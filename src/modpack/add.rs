@@ -1,11 +1,11 @@
-use crate::config::structs::{Config, Modpack, ModpackIdentifier};
+use crate::config::structs::{Config, ModpackIdentifier};
 use ferinth::{
     structures::project_structs::{Project, ProjectType},
     Ferinth,
 };
 use furse::{structures::mod_structs::Mod, Furse};
 use reqwest::StatusCode;
-use std::{path::PathBuf, sync::Arc};
+use std::{sync::Arc};
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
@@ -50,15 +50,13 @@ impl From<ferinth::Error> for Error {
     }
 }
 
-/// Check if the project of `project_id` exists and is a modpack. If so, add it to `config`
+/// Check if the project of `project_id` exists and is a modpack
 ///
 /// Returns the project struct
 pub async fn curseforge(
     curseforge: Arc<Furse>,
     config: &mut Config,
     project_id: i32,
-    output_dir: PathBuf,
-    install_overrides: bool,
 ) -> Result<Mod> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
@@ -81,27 +79,19 @@ pub async fn curseforge(
     }
 
     if contains_zip_file {
-        config.modpacks.push(Modpack {
-            name: project.name.clone(),
-            identifier: ModpackIdentifier::CurseForgeModpack(project.id),
-            output_dir,
-            install_overrides,
-        });
         Ok(project)
     } else {
         Err(Error::NotAModpack)
     }
 }
 
-/// Check if the project of `project_id` exists and is a modpack. If so, add it to `config`
+/// Check if the project of `project_id` exists and is a modpack
 ///
 /// Returns the project struct
 pub async fn modrinth(
     modrinth: Arc<Ferinth>,
     config: &mut Config,
     project_id: &str,
-    output_dir: PathBuf,
-    install_overrides: bool,
 ) -> Result<Project> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
@@ -113,12 +103,6 @@ pub async fn modrinth(
     } else if project.project_type != ProjectType::Modpack {
         Err(Error::NotAModpack)
     } else {
-        config.modpacks.push(Modpack {
-            name: project.title.clone(),
-            identifier: ModpackIdentifier::ModrinthModpack(project.id.clone()),
-            output_dir,
-            install_overrides,
-        });
         Ok(project)
     }
 }

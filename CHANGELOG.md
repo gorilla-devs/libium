@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.15.5`
+### 18.05.2022
+
+`modpack::add` no longer adds the project to the config
+
 ## `1.15.4`
 ### 17.05.2022
 
