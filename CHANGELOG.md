@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.16.0`
+### 18.05.2022
+
+Implemented CurseForge's third party distribution restrictions
+
 ## `1.15.5`
 ### 18.05.2022
 

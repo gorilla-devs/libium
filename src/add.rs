@@ -20,6 +20,10 @@ use std::sync::Arc;
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("The developer of this mod has denied third party applications from downloading it.
+    You can manually download the mod and place it in the `user` folder of the output directory to mitigate this.
+    However, you will have to manually update the mod")]
+    DistributionDenied,
     #[error("The project/repository has already been added")]
     AlreadyAdded,
     #[error("The project/repository does not exist")]
@@ -207,6 +211,10 @@ pub async fn curseforge(
         mod_.name == project.name || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
         return Err(Error::AlreadyAdded);
+    }
+
+    if Some(false) == project.allow_mod_distribution {
+        return Err(Error::DistributionDenied);
     }
 
     let files = curseforge.get_mod_files(project.id).await?;

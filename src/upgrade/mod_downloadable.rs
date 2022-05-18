@@ -1,4 +1,4 @@
-use super::{check, Downloadable};
+use super::{check, DistributionDeniedError, Downloadable};
 use crate::config::structs::{Mod, ModIdentifier, ModLoader};
 use ferinth::{
     structures::version_structs::{Version, VersionFile},
@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("{}", .0)]
+    DistributionDenied(#[from] DistributionDeniedError),
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
@@ -146,7 +148,7 @@ pub async fn get_latest_compatible_downloadable(
         )
         .map_or_else(
             || Err(Error::NoCompatibleFile),
-            |ok| Ok((ok.0.into(), ok.1)),
+            |ok| Ok((ok.0.try_into()?, ok.1)),
         ),
         ModIdentifier::ModrinthProject(project_id) => get_latest_compatible_version(
             &modrinth.list_versions(project_id).await?,

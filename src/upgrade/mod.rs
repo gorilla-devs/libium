@@ -35,10 +35,17 @@ pub struct Downloadable {
     /// The size of the file in bytes
     pub size: Option<u64>,
 }
-impl From<File> for Downloadable {
-    fn from(file: File) -> Self {
-        Self {
-            download_url: file.download_url,
+
+#[derive(Debug, thiserror::Error)]
+#[error("The developer of this mod has denied third party applications from downloading it.
+You can manually download the mod, place it in the `user` folder of the output directory, then remove this mod from the profile to mitigate this.
+However, you will have to manually update the mod")]
+pub struct DistributionDeniedError;
+impl TryFrom<File> for Downloadable {
+    type Error = DistributionDeniedError;
+    fn try_from(file: File) -> std::result::Result<Downloadable, DistributionDeniedError> {
+        Ok(Self {
+            download_url: file.download_url.ok_or(DistributionDeniedError)?,
             output: PathBuf::from(if file.file_name.ends_with(".zip") {
                 "resourcepacks"
             } else {
@@ -46,7 +53,7 @@ impl From<File> for Downloadable {
             })
             .join(file.file_name),
             size: Some(file.file_length),
-        }
+        })
     }
 }
 impl From<VersionFile> for Downloadable {
