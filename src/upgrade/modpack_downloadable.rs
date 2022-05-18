@@ -24,6 +24,7 @@ pub enum Error {
 }
 type Result<T> = std::result::Result<T, Error>;
 
+/// Download and open the latest file of `project_id`
 pub async fn download_curseforge_modpack<TF, UF>(
     curseforge: Arc<Furse>,
     project_id: i32,
@@ -49,6 +50,7 @@ where
     Ok(File::open(modpack_path)?)
 }
 
+/// Download and open the latest version of `project_id`
 pub async fn download_modrinth_modpack<TF, UF>(
     modrinth: Arc<Ferinth>,
     project_id: &str,
