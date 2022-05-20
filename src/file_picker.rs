@@ -1,20 +1,20 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-// macOS can only use a sync file picker
-#[cfg(all(target_os = "macos", feature = "gui"))]
+// macOS, it can only use a synchronous file picker, and any GUI feature
+#[cfg(all(target_os = "macos", any(feature = "gtk", feature = "xdg")))]
 #[allow(clippy::unused_async)]
-/// Use the file picker to pick a file, with a `default` path
-pub async fn pick_folder(default: &PathBuf, prompt: &str) -> Option<PathBuf> {
+/// Use the file picker to pick a file, with a `default` path ([XDG not supported](https://github.com/PolyMeilex/rfd/issues/42))
+pub async fn pick_folder(default: &Path, prompt: &str) -> Option<PathBuf> {
     rfd::FileDialog::new()
         .set_directory(default)
         .set_title(prompt)
         .pick_folder()
 }
 
-// Other OSs can use the async version
-#[cfg(all(not(target_os = "macos"), feature = "gui"))]
-/// Use the file picker to pick a file, with a `default` path
-pub async fn pick_folder(default: &PathBuf, prompt: &str) -> Option<PathBuf> {
+// Not macOS, other OSs can use the async version, and any GUI feature
+#[cfg(all(not(target_os = "macos"), any(feature = "gtk", feature = "xdg")))]
+/// Use the file picker to pick a file, with a `default` path ([XDG not supported](https://github.com/PolyMeilex/rfd/issues/42))
+pub async fn pick_folder(default: &Path, prompt: &str) -> Option<PathBuf> {
     rfd::AsyncFileDialog::new()
         .set_directory(default)
         .set_title(prompt)
@@ -23,9 +23,10 @@ pub async fn pick_folder(default: &PathBuf, prompt: &str) -> Option<PathBuf> {
         .map(|handle| handle.path().into())
 }
 
-#[cfg(not(feature = "gui"))]
+// No GUI features
+#[cfg(not(any(feature = "gtk", feature = "xdg")))]
 #[allow(clippy::unused_async)]
-pub async fn pick_folder(default: &PathBuf, prompt: &str) -> Option<PathBuf> {
+pub async fn pick_folder(default: &Path, prompt: &str) -> Option<PathBuf> {
     use dialoguer::{theme::ColorfulTheme, Input};
     Input::with_theme(&ColorfulTheme::default())
         .with_prompt(prompt)
