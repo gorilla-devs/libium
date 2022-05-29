@@ -1,5 +1,13 @@
 # Changelog for Libium
 
+## `1.18.0`
+### 30.05.2022
+
+- Improve error messages
+- Add functions no longer add the mod to the config
+- Modpack manifests will now accept unknown fields
+- `DistributionDeniedError` now has mod_id and file_id fields
+
 ## `1.16.0`
 ### 18.05.2022
 
