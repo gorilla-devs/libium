@@ -38,7 +38,7 @@ pub struct Downloadable {
 
 #[derive(Debug, thiserror::Error)]
 #[error("The developer of this mod has denied third party applications from downloading it")]
-pub struct DistributionDeniedError(i32, i32);
+pub struct DistributionDeniedError(pub i32, pub i32);
 impl TryFrom<File> for Downloadable {
     type Error = DistributionDeniedError;
     fn try_from(file: File) -> std::result::Result<Downloadable, DistributionDeniedError> {
