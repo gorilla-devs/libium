@@ -37,9 +37,7 @@ pub struct Downloadable {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("The developer of this mod has denied third party applications from downloading it.
-You can manually download the mod, place it in the `user` folder of the output directory, then remove this mod from the profile to mitigate this.
-However, you will have to manually update the mod")]
+#[error("The developer of this mod has denied third party applications from downloading it")]
 pub struct DistributionDeniedError;
 impl TryFrom<File> for Downloadable {
     type Error = DistributionDeniedError;

@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct Manifest {
     /// Information about how to setup Minecraft
     pub minecraft: Minecraft,
@@ -24,7 +23,6 @@ pub struct Manifest {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct Minecraft {
     /// The game version to install
     pub version: String,
@@ -34,13 +32,11 @@ pub struct Minecraft {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub enum ManifestType {
     MinecraftModpack,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(deny_unknown_fields)]
 pub struct ModpackFile {
     #[serde(rename = "projectID")]
     /// The project ID of this mod
@@ -54,7 +50,6 @@ pub struct ModpackFile {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct ModpackModLoader {
     /// The name/ID of the mod loader
     pub id: String,

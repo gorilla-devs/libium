@@ -7,10 +7,12 @@ use tokio::fs::create_dir_all;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("The developer of this modpack has denied third party applications from downloading it.
-    You can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
-    However, you will have to manually update the mod")]
-    DistributionDenied,
+    #[error(
+        "The developer of this modpack has denied third party applications from downloading it"
+    )]
+    /// The user can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
+    /// However, they will have to manually update the modpack file
+    DistributionDenied(i32),
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
@@ -44,7 +46,9 @@ where
     let modpack_path = cache_dir.join(&latest_file.file_name);
     if !modpack_path.exists() {
         let latest_file = Downloadable {
-            download_url: latest_file.download_url.ok_or(Error::DistributionDenied)?,
+            download_url: latest_file
+                .download_url
+                .ok_or(Error::DistributionDenied(latest_file.id))?,
             output: latest_file.file_name.into(),
             size: Some(latest_file.file_length),
         };

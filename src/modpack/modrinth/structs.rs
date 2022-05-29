@@ -5,7 +5,6 @@ use url::Url;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct Metadata {
     /// The version of the format, stored as a number.
     /// The current value at the time of writing is `1`
@@ -26,7 +25,6 @@ pub struct Metadata {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
 pub enum DependencyID {
     Minecraft,
     Forge,
@@ -36,7 +34,6 @@ pub enum DependencyID {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct ModpackFile {
     /// The destination path of this file, relative to the Minecraft instance directory
     pub path: PathBuf,
@@ -52,7 +49,6 @@ pub struct ModpackFile {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct ModpackFileHashes {
     sha1: String,
     sha512: String,
@@ -60,7 +56,6 @@ pub struct ModpackFileHashes {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub struct ModpackFileEnvironment {
     client: ProjectSupportRange,
     server: ProjectSupportRange,
@@ -68,7 +63,6 @@ pub struct ModpackFileEnvironment {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-#[serde(deny_unknown_fields)]
 pub enum Game {
     Minecraft,
 }

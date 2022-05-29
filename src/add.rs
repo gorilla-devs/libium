@@ -20,9 +20,9 @@ use std::sync::Arc;
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("The developer of this mod has denied third party applications from downloading it.
-    You can manually download the mod and place it in the `user` folder of the output directory to mitigate this.
-    However, you will have to manually update the mod")]
+    #[error("The developer of this mod has denied third party applications from downloading it")]
+    /// The user can manually download the mod and place it in the `user` folder of the output directory to mitigate this.
+    /// However, they will have to manually update the mod
     DistributionDenied,
     #[error("The project/repository has already been added")]
     AlreadyAdded,
