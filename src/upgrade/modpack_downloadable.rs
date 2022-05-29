@@ -12,7 +12,7 @@ pub enum Error {
     )]
     /// The user can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
     /// However, they will have to manually update the modpack file
-    DistributionDenied(i32),
+    DistributionDenied(i32, i32),
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
@@ -48,7 +48,7 @@ where
         let latest_file = Downloadable {
             download_url: latest_file
                 .download_url
-                .ok_or(Error::DistributionDenied(latest_file.id))?,
+                .ok_or(Error::DistributionDenied(project_id, latest_file.id))?,
             output: latest_file.file_name.into(),
             size: Some(latest_file.file_length),
         };
