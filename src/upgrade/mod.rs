@@ -38,12 +38,14 @@ pub struct Downloadable {
 
 #[derive(Debug, thiserror::Error)]
 #[error("The developer of this mod has denied third party applications from downloading it")]
-pub struct DistributionDeniedError;
+pub struct DistributionDeniedError(pub i32, pub i32);
 impl TryFrom<File> for Downloadable {
     type Error = DistributionDeniedError;
     fn try_from(file: File) -> std::result::Result<Downloadable, DistributionDeniedError> {
         Ok(Self {
-            download_url: file.download_url.ok_or(DistributionDeniedError)?,
+            download_url: file
+                .download_url
+                .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
             output: PathBuf::from(if file.file_name.ends_with(".zip") {
                 "resourcepacks"
             } else {

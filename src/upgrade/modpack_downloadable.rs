@@ -1,4 +1,4 @@
-use super::Downloadable;
+use super::{DistributionDeniedError, Downloadable};
 use crate::{version_ext::VersionExt, HOME};
 use ferinth::Ferinth;
 use furse::Furse;
@@ -12,7 +12,7 @@ pub enum Error {
     )]
     /// The user can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
     /// However, they will have to manually update the modpack file
-    DistributionDenied(i32),
+    DistributionDenied(#[from] DistributionDeniedError),
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
@@ -45,13 +45,8 @@ where
     let cache_dir = HOME.join(".config").join("ferium").join(".cache");
     let modpack_path = cache_dir.join(&latest_file.file_name);
     if !modpack_path.exists() {
-        let latest_file = Downloadable {
-            download_url: latest_file
-                .download_url
-                .ok_or(Error::DistributionDenied(latest_file.id))?,
-            output: latest_file.file_name.into(),
-            size: Some(latest_file.file_length),
-        };
+        let mut latest_file: Downloadable = latest_file.try_into()?;
+        latest_file.output = latest_file.filename().into();
         create_dir_all(&cache_dir).await?;
         latest_file.download(&cache_dir, total, update).await?;
     }

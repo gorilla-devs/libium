@@ -1,5 +1,5 @@
 use crate::{
-    config::structs::{Mod, ModIdentifier, Profile},
+    config::structs::{ModIdentifier, Profile},
     upgrade::mod_downloadable,
 };
 use ferinth::{
@@ -128,20 +128,6 @@ pub async fn github(
         )
         .ok_or(Error::Incompatible)?
         .0;
-        profile.mods.push(Mod {
-            name: repo.name.clone(),
-            identifier: ModIdentifier::GitHubRepository(repo_name),
-            check_game_version: if should_check_game_version == Some(true) {
-                None
-            } else {
-                should_check_game_version
-            },
-            check_mod_loader: if should_check_mod_loader == Some(true) {
-                None
-            } else {
-                should_check_mod_loader
-            },
-        });
         Ok((repo, asset))
     } else {
         Err(Error::NotAMod)
@@ -177,20 +163,6 @@ pub async fn modrinth(
         )
         .ok_or(Error::Incompatible)?
         .1;
-        profile.mods.push(Mod {
-            name: project.title.clone(),
-            identifier: ModIdentifier::ModrinthProject(project.id.clone()),
-            check_game_version: if should_check_game_version == Some(true) {
-                None
-            } else {
-                should_check_game_version
-            },
-            check_mod_loader: if should_check_mod_loader == Some(true) {
-                None
-            } else {
-                should_check_mod_loader
-            },
-        });
         Ok((project, version))
     }
 }
@@ -238,20 +210,6 @@ pub async fn curseforge(
         )
         .ok_or(Error::Incompatible)?
         .0;
-        profile.mods.push(Mod {
-            name: project.name.clone(),
-            identifier: ModIdentifier::CurseForgeProject(project.id),
-            check_game_version: if should_check_game_version == Some(true) {
-                None
-            } else {
-                should_check_game_version
-            },
-            check_mod_loader: if should_check_mod_loader == Some(true) {
-                None
-            } else {
-                should_check_mod_loader
-            },
-        });
         Ok((project, file))
     } else {
         Err(Error::NotAMod)
