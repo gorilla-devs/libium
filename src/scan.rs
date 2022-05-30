@@ -14,6 +14,8 @@ pub enum Error {
     NotFound,
     #[error("Couldn't find mod on modrinth or curseforge")]
     DoesNotExist,
+    #[error("Mod already added")]
+    AlreadyAdded,
     #[error("{}", .0)]
     ModrinthError(ferinth::Error),
     #[error("{}", .0)]
@@ -50,6 +52,7 @@ pub async fn scan<P>(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,
     mod_path: P,
+    profile: &crate::config::structs::Profile
 ) -> Result<Vec<ModIdentifier>>
 where
     P: AsRef<Path>,
@@ -73,6 +76,11 @@ where
     }
     if found_mods.len() == 0 {
         return Err(Error::DoesNotExist);
+    }
+    for mod_ in &found_mods {
+        if profile.mods.iter().any(|iter| &iter.identifier == mod_) {
+            return Err(Error::AlreadyAdded);
+        }
     }
     Ok(found_mods)
 }
