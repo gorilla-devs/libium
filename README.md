@@ -35,15 +35,15 @@ Libium is the backend of Ferium and Carbon. It is responsible for everything pla
             │
 ╭───────────╯
 │
-│ ┏━━━━━━━━━━━━━━━━━━━━━━┓  | Extendable Mod loaders, managing Minecraft's inner game
-├─┨     Mod loaders      ┃  | files, like metadata, versions and launch commands.
-│ ┃╔═══════╗   ╔════════╗┃  | 
-│ ┃║ Faber ║ ∙ ║ Forgic ║┃  | Vanel:   Vanilla implementation, no mods.
-│ ┃╚═══════╝∙∙∙╚════════╝┃  | Quantum: Manager for the Quilt Mod Loader
-│ ┃╔═══════╗∙∙∙╔════════╗┃  | Faber:   Manager for the Fabric Mod Loader
-│ ┃║ Vanel ║ ∙ ║ Forgic ║┃  | Forgic:  Manager for the Forge Mod Loader
-│ ┃╚═══════╝   ╚════════╝┃  | 
-│ ┗━━━━━━━━━━┯━━━━━━━━━━━┛
+│ ┏━━━━━━━━━━━━━━━━━━━━━━━┓ | Extendable Mod loaders, managing Minecraft's inner game
+├─┨     Mod loaders       ┃ | files, like metadata, versions and launch commands.
+│ ┃╔═══════╗   ╔═════════╗┃ | 
+│ ┃║ Faber ║ ∙ ║ Forgic  ║┃ | Vanel:   Vanilla implementation, no mods.
+│ ┃╚═══════╝∙∙∙╚═════════╝┃ | Quantum: Manager for the Quilt Mod Loader
+│ ┃╔═══════╗∙∙∙╔═════════╗┃ | Faber:   Manager for the Fabric Mod Loader
+│ ┃║ Vanel ║ ∙ ║ Quantum ║┃ | Forgic:  Manager for the Forge Mod Loader
+│ ┃╚═══════╝   ╚═════════╝┃ | 
+│ ┗━━━━━━━━━━┯━━━━━━━━━━━━┛
 │        ╔═══╧═══╗          | Ludic, the library providing uniform Mod loader objects,
 │        ║ Ludic ║          | that get traits in the Mod loader implementations.
 │        ╚═══════╝          |
