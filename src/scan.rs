@@ -4,25 +4,18 @@ use reqwest::StatusCode;
 use sha1::{Digest, Sha1};
 use std::{fs, path::Path, sync::Arc};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ModPlatform {
-    Modrinth,
-    Curseforge,
-}
-
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{}", .0)]
     IOError(#[from] std::io::Error),
-    #[error("Could not find mod on Modrinth or CurseForge")]
-    DoesNotExist,
     #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
     CurseForgeError(#[from] furse::Error),
 }
 
+/// Scan the given `mod_path` and return a Modrinth project ID, a CurseForge mod ID, none, or both
 pub async fn scan(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,
