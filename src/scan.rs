@@ -1,4 +1,4 @@
-use crate::config::structs::ModIdentifier;
+use crate::{config::structs::ModIdentifier, misc::curseforge_murmur2_hash};
 use ferinth::Ferinth;
 use furse::Furse;
 use reqwest::StatusCode;
@@ -52,7 +52,7 @@ pub async fn scan<P>(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,
     mod_path: P,
-    profile: &crate::config::structs::Profile
+    profile: &crate::config::structs::Profile,
 ) -> Result<Vec<ModIdentifier>>
 where
     P: AsRef<Path>,
@@ -74,7 +74,7 @@ where
             }
         },
     }
-    if found_mods.len() == 0 {
+    if found_mods.is_empty() {
         return Err(Error::DoesNotExist);
     }
     for mod_ in &found_mods {
@@ -96,13 +96,15 @@ where
     Ok(ModIdentifier::ModrinthProject(version.project_id))
 }
 
-async fn get_curseforge_mod_by_hash<P>(
-    _curseforge: Arc<Furse>,
-    _mod_path: P,
-) -> Result<ModIdentifier>
+async fn get_curseforge_mod_by_hash<P>(curseforge: Arc<Furse>, mod_path: P) -> Result<ModIdentifier>
 where
     P: AsRef<Path>,
 {
-    // TODO 
-    Err(Error::NotFound)
+    let bytes = fs::read(mod_path)?;
+    let fingerprint = curseforge_murmur2_hash(bytes::Bytes::from(bytes));
+    let matches = curseforge.get_fingerprint_matches(vec![fingerprint]).await?;
+    if matches.exact_matches.is_empty() {
+        return Err(Error::NotFound)
+    }
+    Ok(ModIdentifier::CurseForgeProject(matches.exact_matches[0].project_id))
 }
