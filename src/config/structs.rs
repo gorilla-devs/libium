@@ -87,3 +87,22 @@ impl TryFrom<&String> for ModLoader {
         }
     }
 }
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ArgEnum)]
+pub enum ModPlatform {
+    Modrinth,
+    Curseforge,
+}
+#[derive(thiserror::Error, Debug, PartialEq)]
+#[error("The given string is not a mod platform")]
+pub struct ModPlatformParseError {}
+impl TryFrom<&String> for ModPlatform {
+    type Error = ModPlatformParseError;
+    fn try_from(from: &String) -> Result<Self, Self::Error> {
+        match from.to_lowercase().as_str() {
+            "curseforge" => Ok(Self::Curseforge),
+            "modrinth" => Ok(Self::Modrinth),
+            _ => Err(Self::Error {}),
+        }
+    }
+}
