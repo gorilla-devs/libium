@@ -1,4 +1,4 @@
-use crate::{config::structs::ModIdentifier, misc::curseforge_murmur2_hash};
+use crate::config::structs::ModIdentifier;
 use ferinth::Ferinth;
 use furse::Furse;
 use reqwest::StatusCode;
@@ -93,10 +93,9 @@ where
     P: AsRef<Path>,
 {
     let bytes = fs::read(mod_path)?;
-    let fingerprint = curseforge_murmur2_hash(bytes::Bytes::from(bytes));
-    let matches = curseforge.get_fingerprint_matches(vec![fingerprint]).await?;
+    let matches = curseforge.get_fingerprint_matches(vec![bytes.into()]).await?;
     if matches.exact_matches.is_empty() {
         return Err(Error::NotFound)
     }
-    Ok(ModIdentifier::CurseForgeProject(matches.exact_matches[0].project_id))
+    Ok(ModIdentifier::CurseForgeProject(matches.exact_matches[0].id))
 }

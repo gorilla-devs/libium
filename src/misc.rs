@@ -1,8 +1,6 @@
 use crate::HOME;
 use ferinth::Ferinth;
 use std::path::PathBuf;
-use bytes::Bytes;
-use murmur2::murmur2;
 
 /// Get a maximum of `count` number of the latest major versions of Minecraft
 pub async fn get_major_mc_versions(mut count: usize) -> Result<Vec<String>, ferinth::Error> {
@@ -34,10 +32,4 @@ pub fn get_minecraft_dir() -> PathBuf {
         "windows" => HOME.join("AppData").join("Roaming").join(".minecraft"),
         _ => unreachable!(),
     }
-}
-
-
-pub fn curseforge_murmur2_hash(bytes: Bytes) -> u32 {
-    let b = bytes.into_iter().filter(|&x| !matches!(x, 9 | 10 | 13 | 32)).collect::<Bytes>();
-    murmur2(&b, 1)
 }
