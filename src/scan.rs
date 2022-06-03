@@ -1,101 +1,81 @@
-use crate::config::structs::ModIdentifier;
-use ferinth::Ferinth;
-use furse::Furse;
+use ferinth::{structures::version_structs::Version, Ferinth};
+use furse::{structures::file_structs::File, Furse};
 use reqwest::StatusCode;
 use sha1::{Digest, Sha1};
 use std::{fs, path::Path, sync::Arc};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModPlatform {
+    Modrinth,
+    Curseforge,
+}
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{}", .0)]
-    IoError(#[from] std::io::Error),
-    #[error("The mod does not exist")]
-    NotFound,
-    #[error("Couldn't find mod on modrinth or curseforge")]
+    IOError(#[from] std::io::Error),
+    #[error("Could not find mod on Modrinth or CurseForge")]
     DoesNotExist,
     #[error("{}", .0)]
-    ModrinthError(ferinth::Error),
+    ModrinthError(#[from] ferinth::Error),
     #[error("{}", .0)]
-    CurseForgeError(furse::Error),
-}
-impl From<furse::Error> for Error {
-    fn from(err: furse::Error) -> Self {
-        if let furse::Error::ReqwestError(source) = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::NotFound
-            } else {
-                Self::CurseForgeError(err)
-            }
-        } else {
-            Self::CurseForgeError(err)
-        }
-    }
-}
-impl From<ferinth::Error> for Error {
-    fn from(err: ferinth::Error) -> Self {
-        if let ferinth::Error::ReqwestError(source) = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::NotFound
-            } else {
-                Self::ModrinthError(err)
-            }
-        } else {
-            Self::ModrinthError(err)
-        }
-    }
+    CurseForgeError(#[from] furse::Error),
 }
 
-pub async fn scan<P>(
+pub async fn scan(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,
-    mod_path: P,
-) -> Result<Vec<ModIdentifier>>
-where
-    P: AsRef<Path>,
-{
-    let mut found_mods: Vec<ModIdentifier> = vec![];
-    match get_modrinth_mod_by_hash(modrinth.clone(), &mod_path).await {
-        Ok(mod_) => found_mods.push(mod_),
-        Err(err) => {
-            if !matches!(err, Error::NotFound) {
-                return Err(err);
-            }
-        },
-    }
-    match get_curseforge_mod_by_hash(curseforge.clone(), &mod_path).await {
-        Ok(mod_) => found_mods.push(mod_),
-        Err(err) => {
-            if !matches!(err, Error::NotFound) {
-                return Err(err);
-            }
-        },
-    }
-    if found_mods.is_empty() {
-        return Err(Error::DoesNotExist);
-    }
-    Ok(found_mods)
+    mod_path: &Path,
+) -> Result<(Option<String>, Option<i32>)> {
+    Ok((
+        get_modrinth_mod_by_hash(modrinth.clone(), mod_path)
+            .await?
+            .map(|version| version.project_id),
+        get_curseforge_mod_by_hash(curseforge.clone(), mod_path)
+            .await?
+            .map(|file| file.mod_id),
+    ))
 }
 
-async fn get_modrinth_mod_by_hash<P>(modrinth: Arc<Ferinth>, mod_path: P) -> Result<ModIdentifier>
-where
-    P: AsRef<Path>,
-{
+/// Get the version of the mod at `mod_path`
+pub async fn get_modrinth_mod_by_hash(
+    modrinth: Arc<Ferinth>,
+    mod_path: &Path,
+) -> Result<Option<Version>> {
     let hash = Sha1::default().chain_update(fs::read(mod_path)?).finalize();
-    let version = modrinth
+    let result = modrinth
         .get_version_from_file_hash(&format!("{:x}", hash))
-        .await?;
-    Ok(ModIdentifier::ModrinthProject(version.project_id))
+        .await;
+    match result {
+        Ok(version) => Ok(Some(version)),
+        Err(err) => {
+            if let ferinth::Error::ReqwestError(source) = &err {
+                if Some(StatusCode::NOT_FOUND) == source.status() {
+                    Ok(None)
+                } else {
+                    Err(err.into())
+                }
+            } else {
+                Err(err.into())
+            }
+        },
+    }
 }
 
-async fn get_curseforge_mod_by_hash<P>(curseforge: Arc<Furse>, mod_path: P) -> Result<ModIdentifier>
-where
-    P: AsRef<Path>,
-{
+/// Get the file of the mod at `mod_path`
+pub async fn get_curseforge_mod_by_hash(
+    curseforge: Arc<Furse>,
+    mod_path: &Path,
+) -> Result<Option<File>> {
     let bytes = fs::read(mod_path)?;
-    let matches = curseforge.get_fingerprint_matches(vec![bytes.into()]).await?;
-    if matches.exact_matches.is_empty() {
-        return Err(Error::NotFound)
+    let mut matches = curseforge
+        .get_fingerprint_matches(vec![bytes.into()])
+        .await?
+        .exact_matches;
+    if matches.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(matches.swap_remove(0).file))
     }
-    Ok(ModIdentifier::CurseForgeProject(matches.exact_matches[0].id))
 }
