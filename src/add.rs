@@ -87,7 +87,7 @@ impl From<octocrab::Error> for Error {
 /// Returns the repository and the latest compatible asset
 pub async fn github(
     repo_handler: &RepoHandler<'_>,
-    profile: &mut Profile,
+    profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<(Repository, Asset)> {
@@ -140,7 +140,7 @@ pub async fn github(
 pub async fn modrinth(
     modrinth: Arc<Ferinth>,
     project_id: &str,
-    profile: &mut Profile,
+    profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<(Project, Version)> {
@@ -173,7 +173,7 @@ pub async fn modrinth(
 pub async fn curseforge(
     curseforge: Arc<Furse>,
     project_id: i32,
-    profile: &mut Profile,
+    profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<(furse::structures::mod_structs::Mod, File)> {
