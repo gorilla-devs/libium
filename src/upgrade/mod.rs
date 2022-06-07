@@ -52,7 +52,7 @@ impl TryFrom<File> for Downloadable {
                 "mods"
             })
             .join(file.file_name),
-            size: Some(file.file_length),
+            size: Some(file.file_length as u64),
         })
     }
 }
