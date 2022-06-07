@@ -14,7 +14,7 @@ use zip::{
 };
 
 /// Extract the `input` zip file to `output_dir`
-pub async fn extract_modpack(input: impl Read + Seek, output_dir: &Path) -> ZipResult<()> {
+pub async fn extract_zip(input: impl Read + Seek, output_dir: &Path) -> ZipResult<()> {
     let mut zip = ZipArchive::new(input)?;
     for i in 0..zip.len() {
         let mut file = zip.by_index(i)?;

@@ -1,5 +1,12 @@
 # Changelog for Libium
 
+## `1.18.1`
+### 07.06.2022
+
+- Update dependencies
+- [gorilla-devs/ferium#113](https://github.com/gorilla-devs/ferium/issues/113) Make dependencies use `~` so that only minor versions are auto updated
+- Many small clippy lint fixes
+
 ## `1.18.0`
 ### 30.05.2022
 

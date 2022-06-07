@@ -20,9 +20,8 @@ impl VersionExt for Version {
         for file in self.files {
             if file.primary {
                 return file;
-            } else {
-                files.push(file)
             }
+            files.push(file)
         }
         files.swap_remove(0)
     }

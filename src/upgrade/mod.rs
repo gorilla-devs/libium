@@ -41,7 +41,7 @@ pub struct Downloadable {
 pub struct DistributionDeniedError(pub i32, pub i32);
 impl TryFrom<File> for Downloadable {
     type Error = DistributionDeniedError;
-    fn try_from(file: File) -> std::result::Result<Downloadable, DistributionDeniedError> {
+    fn try_from(file: File) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             download_url: file
                 .download_url
@@ -52,7 +52,7 @@ impl TryFrom<File> for Downloadable {
                 "mods"
             })
             .join(file.file_name),
-            size: Some(file.file_length),
+            size: Some(file.file_length as u64),
         })
     }
 }
