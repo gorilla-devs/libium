@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.19.0`
+### 03.06.2022
+
+Add functionality to get a version/file from a mod file
+
 ## `1.18.0`
 ### 30.05.2022
 
