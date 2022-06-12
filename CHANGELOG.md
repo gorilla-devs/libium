@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.18.2`
+### 12.06.2022
+
+Update ferinth minor version
+
 ## `1.18.1`
 ### 07.06.2022
 
