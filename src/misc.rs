@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 /// Get a maximum of `count` number of the latest major versions of Minecraft
 pub async fn get_major_mc_versions(mut count: usize) -> Result<Vec<String>, ferinth::Error> {
-    let versions = Ferinth::new().list_game_versions().await?;
+    let versions = Ferinth::default().list_game_versions().await?;
     let mut major_versions = Vec::new();
 
     for version in versions {
