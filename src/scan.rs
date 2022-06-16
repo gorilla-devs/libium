@@ -10,7 +10,7 @@ use sha1::{Digest, Sha1};
 use std::{
     collections::HashMap,
     fs,
-    path::{Path, PathBuf},
+    path::{PathBuf, Path},
     sync::Arc,
 };
 
@@ -25,10 +25,11 @@ pub enum Error {
     CurseForgeError(#[from] furse::Error),
 }
 
+/// Scan the given `mod_paths` and return a CurseForge file and Modrinth version for each path
 pub async fn scan(
     modrinth: Arc<Ferinth>,
     curseforge: Arc<Furse>,
-    mod_paths: Vec<&Path>,
+    mod_paths: Vec<PathBuf>,
 ) -> Result<HashMap<PathBuf, (Option<Version>, Option<File>)>> {
     let modrinth_mods = get_modrinth_mods_by_hash(modrinth.clone(), mod_paths.clone()).await?;
     let curseforge_mods =
@@ -64,9 +65,10 @@ pub async fn scan(
     Ok(mods)
 }
 
+/// Search for the given `mod_paths` on Modrinth by hash and return a version for each hash
 pub async fn get_modrinth_mods_by_hash(
     modrinth: Arc<Ferinth>,
-    mod_paths: Vec<&Path>,
+    mod_paths: Vec<PathBuf>,
 ) -> Result<HashMap<String, Version>> {
     let mut hashes = vec![];
     for file in mod_paths {
@@ -77,9 +79,10 @@ pub async fn get_modrinth_mods_by_hash(
     Ok(versions)
 }
 
+/// Search for the given `mod_paths` on CurseForge by hash
 pub async fn get_curseforge_mods_by_hash(
     curseforge: Arc<Furse>,
-    mod_paths: Vec<&Path>,
+    mod_paths: Vec<PathBuf>,
 ) -> Result<Vec<File>> {
     let mut file_contents = vec![];
     for file in mod_paths {
