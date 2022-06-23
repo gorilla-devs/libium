@@ -101,7 +101,7 @@ impl Downloadable {
         output_dir: &Path,
         total: TF,
         update: UF,
-    ) -> Result<(Option<Size<u64>>, String)>
+    ) -> Result<(Option<Size>, String)>
     where
         TF: Fn(u64) + Send,
         UF: Fn(usize) + Send,
@@ -133,7 +133,7 @@ impl Downloadable {
         }
         rename(&temp_file_path, out_file_path).await?;
         Ok((
-            file_size.map(Size::Bytes),
+            file_size.map(Size::from_bytes),
             self.output
                 .file_name()
                 .unwrap()
