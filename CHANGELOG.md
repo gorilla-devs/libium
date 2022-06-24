@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## `1.19.0`
+### 24.06.2022
+
+- Update dependencies
+- Make `Downloadable` use `url::Url`
+
 ## `1.18.2`
 ### 12.06.2022
 

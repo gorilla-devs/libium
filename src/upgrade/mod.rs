@@ -6,6 +6,7 @@ use crate::modpack::modrinth::structs::ModpackFile;
 use ferinth::structures::version_structs::VersionFile;
 use furse::{structures::file_structs::File, Furse};
 use octocrab::models::repos::Asset;
+use reqwest::Url;
 use size::Size;
 use std::{
     path::{Path, PathBuf},
@@ -29,7 +30,7 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone)]
 pub struct Downloadable {
     /// A URL to download the file from
-    pub download_url: String,
+    pub download_url: Url,
     /// Where to output the file relative to the output directory (Minecraft instance directory)
     pub output: PathBuf,
     /// The size of the file in bytes
@@ -73,7 +74,7 @@ impl From<VersionFile> for Downloadable {
 impl From<ModpackFile> for Downloadable {
     fn from(file: ModpackFile) -> Self {
         Self {
-            download_url: file.downloads[0].clone().into(),
+            download_url: file.downloads[0].clone(),
             output: file.path,
             size: Some(file.file_size),
         }
@@ -82,7 +83,7 @@ impl From<ModpackFile> for Downloadable {
 impl From<Asset> for Downloadable {
     fn from(asset: Asset) -> Self {
         Self {
-            download_url: asset.browser_download_url.into(),
+            download_url: asset.browser_download_url,
             output: PathBuf::from("mods").join(asset.name),
             size: Some(asset.size as u64),
         }
@@ -101,7 +102,7 @@ impl Downloadable {
         output_dir: &Path,
         total: TF,
         update: UF,
-    ) -> Result<(Option<Size<u64>>, String)>
+    ) -> Result<(Option<Size>, String)>
     where
         TF: Fn(u64) + Send,
         UF: Fn(usize) + Send,
@@ -111,7 +112,7 @@ impl Downloadable {
             total(size);
             file_size = Some(size);
         }
-        let mut response = reqwest::get(&self.download_url).await?;
+        let mut response = reqwest::get(self.download_url).await?;
         if let Some(size) = response.content_length() {
             if file_size.is_none() {
                 total(size);
@@ -133,7 +134,7 @@ impl Downloadable {
         }
         rename(&temp_file_path, out_file_path).await?;
         Ok((
-            file_size.map(Size::Bytes),
+            file_size.map(Size::from_bytes),
             self.output
                 .file_name()
                 .unwrap()
@@ -154,7 +155,7 @@ impl Downloadable {
             .unwrap()
             .into_owned();
         Ok(Self {
-            download_url: url.clone().into(),
+            download_url: url,
             output: PathBuf::from(if filename.ends_with(".zip") {
                 "resourcepacks"
             } else {
