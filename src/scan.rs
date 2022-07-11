@@ -84,12 +84,12 @@ pub async fn get_curseforge_mods_by_hash(
     curseforge: Arc<Furse>,
     mod_paths: Vec<PathBuf>,
 ) -> Result<Vec<File>> {
-    let mut file_contents = vec![];
+    let mut file_hashes = vec![];
     for file in mod_paths {
-        file_contents.push(bytes::Bytes::from(fs::read(file)?));
+        file_hashes.push(furse::cf_fingerprint(bytes::Bytes::from(fs::read(file)?)));
     }
     let FingerprintMatches { exact_matches, .. } =
-        curseforge.get_fingerprint_matches(file_contents).await?;
+        curseforge.get_fingerprint_matches(file_hashes).await?;
     let mut files = vec![];
     for r#match in exact_matches {
         files.push(r#match.file);
