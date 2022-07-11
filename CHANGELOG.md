@@ -5,6 +5,18 @@
 
 Add functionality to get a version/file from a mod file
 
+## `1.18.2`
+### 12.06.2022
+
+Update ferinth minor version
+
+## `1.18.1`
+### 07.06.2022
+
+- Update dependencies
+- [gorilla-devs/ferium#113](https://github.com/gorilla-devs/ferium/issues/113) Make dependencies use `~` so that only minor versions are auto updated
+- Many small clippy lint fixes
+
 ## `1.18.0`
 ### 30.05.2022
 
