@@ -76,5 +76,7 @@ pub async fn write_file(config_file: &mut File, config: &Config) -> Result<()> {
     let serialised = serde_json::to_string_pretty(config)?;
     config_file.set_len(0).await?; // Truncate file to 0
     config_file.rewind().await?; // Set the cursor to the beginning
-    config_file.write_all(serialised.as_bytes()).await
+    config_file.write_all(serialised.as_bytes()).await?;
+    config_file.rewind().await?; // So that subsequent reads work properly
+    Ok(())
 }

@@ -1,5 +1,12 @@
 # Changelog for Libium
 
+## `1.19.2`
+### 18.07.2022
+
+Fix a bug where the file is not rewound after being written to
+
+Fixes [gorilla-devs/ferium#87](https://github.com/gorilla-devs/ferium/issues/87)
+
 ## `1.19.1`
 ### 17.07.2022
 
