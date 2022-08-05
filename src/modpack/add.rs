@@ -10,9 +10,9 @@ use std::{sync::Arc};
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Mod already added to profile")]
+    #[error("Modpack is already added to profile")]
     AlreadyAdded,
-    #[error("The provided mod does not exist")]
+    #[error("The provided modpack does not exist")]
     DoesNotExist,
     #[error("The project is not a modpack")]
     NotAModpack,
