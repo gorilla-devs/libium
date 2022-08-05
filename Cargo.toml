@@ -1,21 +1,21 @@
 [package]
 name = "libium"
-version = "1.19.0"
+version = "1.19.2"
 edition = "2021"
 authors = [
-  "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
-  "Daniel Hauck (SolidTux)",
+    "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
+    "Daniel Hauck (SolidTux)",
 ]
 description = "Multi-source backend for managing Minecraft mods and modpacks from Modrinth, CurseForge, and Github Releases"
 repository = "https://github.com/theRookieCoder/libium"
 readme = "README.md"
 license = "MPL-2.0"
 keywords = [
-  "minecraft",
-  "mod-manager",
-  "modrinth",
-  "curseforge",
-  "github-releases",
+    "minecraft",
+    "mod-manager",
+    "modrinth",
+    "curseforge",
+    "github-releases",
 ]
 
 [features]
@@ -26,26 +26,26 @@ xdg = ["rfd/xdg-portal"]
 
 [dependencies]
 reqwest = { version = "~0.11.11", default-features = false, features = [
-  "rustls-tls",
-  "json",
+    "rustls-tls",
+    "json",
 ] }
 octocrab = { version = "~0.16.0", default-features = false, features = [
-  "rustls",
+    "rustls",
 ] }
-tokio = { version = "~1.19.2", default-features = false, features = ["fs"] }
+tokio = { version = "~1.20.0", default-features = false, features = ["fs"] }
 rfd = { version = "~0.9.1", default-features = false, optional = true }
-serde = { version = "~1.0.137", features = ["derive"] }
-clap = { version = "~3.2.5", features = ["derive"] }
+serde = { version = "~1.0.139", features = ["derive"] }
+clap = { version = "~3.2.12", features = ["derive"] }
 url = { version = "~2.2.2", features = ["serde"] }
 lazy_static = "~1.4.0"
 urlencoding = "~2.1.0"
-serde_json = "~1.0.81"
+serde_json = "~1.0.82"
 dialoguer = "~0.10.1"
 thiserror = "~1.0.31"
-ferinth = "~2.3.0"
+ferinth = "~2.5.1"
 bytes = "~1.1.0"
-furse = "~1.4.0"
+furse = "~1.5.1"
 home = "~0.5.3"
-size = "~0.2.0"
+size = "~0.4.0"
 zip = "~0.6.2"
 sha1 = "~0.10.0"

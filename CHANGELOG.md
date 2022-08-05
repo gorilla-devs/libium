@@ -1,9 +1,22 @@
 # Changelog for Libium
 
-## `1.19.0`
-### 03.06.2022
+## `1.19.2`
+### 18.07.2022
 
-Add functionality to get a version/file from a mod file
+Fix a bug where the file is not rewound after being written to
+
+Fixes [gorilla-devs/ferium#87](https://github.com/gorilla-devs/ferium/issues/87)
+
+## `1.19.1`
+### 17.07.2022
+
+Update dependencies
+
+## `1.19.0`
+### 24.06.2022
+
+- Update dependencies
+- Make `Downloadable` use `url::Url`
 
 ## `1.18.2`
 ### 12.06.2022
