@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## `1.19.3`
+### 03.09.2022
+
+- Update dependencies
+- Clean up imports in `add.rs`
+
 ## `1.19.2`
 ### 18.07.2022
 
