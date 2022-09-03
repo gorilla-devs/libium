@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.19.2"
+version = "1.19.3"
 edition = "2021"
 authors = [
     "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
@@ -29,22 +29,23 @@ reqwest = { version = "~0.11.11", default-features = false, features = [
     "rustls-tls",
     "json",
 ] }
-octocrab = { version = "~0.16.0", default-features = false, features = [
+octocrab = { version = "~0.17.0", default-features = false, features = [
     "rustls",
 ] }
-tokio = { version = "~1.20.0", default-features = false, features = ["fs"] }
-rfd = { version = "~0.9.1", default-features = false, optional = true }
-serde = { version = "~1.0.139", features = ["derive"] }
-clap = { version = "~3.2.12", features = ["derive"] }
+tokio = { version = "~1.21.0", default-features = false, features = ["fs"] }
+rfd = { version = "~0.10.0", default-features = false, optional = true }
+serde = { version = "~1.0.144", features = ["derive"] }
+clap = { version = "~3.2.20", features = ["derive"] }
 url = { version = "~2.2.2", features = ["serde"] }
 lazy_static = "~1.4.0"
-urlencoding = "~2.1.0"
-serde_json = "~1.0.82"
-dialoguer = "~0.10.1"
-thiserror = "~1.0.31"
-ferinth = "~2.5.1"
+urlencoding = "~2.1.2"
+serde_json = "~1.0.85"
+dialoguer = "~0.10.2"
+thiserror = "~1.0.33"
+ferinth = "~2.6.1"
+# Bound to an older version because of octocrab
 bytes = "~1.1.0"
-furse = "~1.5.1"
+furse = "~1.5.3"
 home = "~0.5.3"
 size = "~0.4.0"
 zip = "~0.6.2"

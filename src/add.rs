@@ -2,18 +2,6 @@ use crate::{
     config::structs::{ModIdentifier, Profile},
     upgrade::mod_downloadable,
 };
-use ferinth::{
-    structures::{
-        project_structs::{Project, ProjectType},
-        version_structs::Version,
-    },
-    Ferinth,
-};
-use furse::{structures::file_structs::File, Furse};
-use octocrab::{
-    models::{repos::Asset, Repository},
-    repos::RepoHandler,
-};
 use reqwest::StatusCode;
 use std::sync::Arc;
 
@@ -86,11 +74,11 @@ impl From<octocrab::Error> for Error {
 ///
 /// Returns the repository and the latest compatible asset
 pub async fn github(
-    repo_handler: &RepoHandler<'_>,
+    repo_handler: &octocrab::repos::RepoHandler<'_>,
     profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(Repository, Asset)> {
+) -> Result<(octocrab::models::Repository, octocrab::models::repos::Asset)> {
     let repo = repo_handler.get().await?;
     let repo_name = (
         repo.owner.as_ref().unwrap().login.clone(),
@@ -138,12 +126,15 @@ pub async fn github(
 ///
 /// Returns the project and the latest compatible version
 pub async fn modrinth(
-    modrinth: Arc<Ferinth>,
+    modrinth: Arc<ferinth::Ferinth>,
     project_id: &str,
     profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(Project, Version)> {
+) -> Result<(
+    ferinth::structures::project_structs::Project,
+    ferinth::structures::version_structs::Version,
+)> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -151,7 +142,7 @@ pub async fn modrinth(
             || ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
     }) {
         Err(Error::AlreadyAdded)
-    } else if project.project_type != ProjectType::Mod {
+    } else if project.project_type != ferinth::structures::project_structs::ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
         let version = mod_downloadable::get_latest_compatible_version(
@@ -171,13 +162,12 @@ pub async fn modrinth(
 ///
 /// Returns the mod and the latest compatible file
 pub async fn curseforge(
-    curseforge: Arc<Furse>,
-    project_id: i32,
+    curseforge: Arc<furse::Furse>,
+    project: &furse::structures::mod_structs::Mod,
     profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(furse::structures::mod_structs::Mod, File)> {
-    let project = curseforge.get_mod(project_id).await?;
+) -> Result<furse::structures::file_structs::File> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name == project.name || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
@@ -210,7 +200,7 @@ pub async fn curseforge(
         )
         .ok_or(Error::Incompatible)?
         .0;
-        Ok((project, file))
+        Ok(file)
     } else {
         Err(Error::NotAMod)
     }

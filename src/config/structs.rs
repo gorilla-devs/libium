@@ -73,7 +73,7 @@ pub enum ModLoader {
     Fabric,
     Forge,
 }
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 #[error("The given string is not a mod loader")]
 pub struct ModLoaderParseError {}
 impl TryFrom<&String> for ModLoader {
