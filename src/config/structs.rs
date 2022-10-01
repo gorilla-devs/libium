@@ -1,4 +1,4 @@
-use clap::ArgEnum;
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -67,7 +67,7 @@ pub enum ModIdentifier {
     GitHubRepository((String, String)),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ArgEnum)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ValueEnum)]
 pub enum ModLoader {
     Quilt,
     Fabric,

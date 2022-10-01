@@ -1,6 +1,6 @@
 use crate::config::structs::{Config, ModpackIdentifier};
 use ferinth::{
-    structures::project_structs::{Project, ProjectType},
+    structures::project::{Project, ProjectType},
     Ferinth,
 };
 use furse::{structures::mod_structs::Mod, Furse};

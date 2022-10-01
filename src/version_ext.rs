@@ -1,4 +1,4 @@
-use ferinth::structures::version_structs::{Version, VersionFile};
+use ferinth::structures::version::{Version, VersionFile};
 
 pub trait VersionExt {
     fn get_version_file(&self) -> &VersionFile;

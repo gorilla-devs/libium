@@ -87,7 +87,7 @@ pub async fn github(
 
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name == repo.name
+        mod_.name.to_lowercase() == repo.name.to_lowercase()
             || ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier
     }) {
         return Err(Error::AlreadyAdded);
@@ -132,17 +132,17 @@ pub async fn modrinth(
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<(
-    ferinth::structures::project_structs::Project,
-    ferinth::structures::version_structs::Version,
+    ferinth::structures::project::Project,
+    ferinth::structures::version::Version,
 )> {
     let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name == project.title
+        mod_.name.to_lowercase() == project.title.to_lowercase()
             || ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
     }) {
         Err(Error::AlreadyAdded)
-    } else if project.project_type != ferinth::structures::project_structs::ProjectType::Mod {
+    } else if project.project_type != ferinth::structures::project::ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
         let version = mod_downloadable::get_latest_compatible_version(
@@ -170,7 +170,7 @@ pub async fn curseforge(
 ) -> Result<furse::structures::file_structs::File> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name == project.name || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
+        mod_.name.to_lowercase() == project.name.to_lowercase() || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
         return Err(Error::AlreadyAdded);
     }

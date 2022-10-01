@@ -3,7 +3,7 @@ pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
 use crate::modpack::modrinth::structs::ModpackFile;
-use ferinth::structures::version_structs::VersionFile;
+use ferinth::structures::version::VersionFile;
 use furse::{structures::file_structs::File, Furse};
 use octocrab::models::repos::Asset;
 use reqwest::Url;

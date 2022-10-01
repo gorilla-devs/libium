@@ -1,5 +1,5 @@
 use crate::{config::structs::ModLoader, version_ext::VersionExt};
-use ferinth::structures::version_structs::{Version, VersionFile};
+use ferinth::structures::version::{Version, VersionFile};
 use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
 
@@ -17,7 +17,7 @@ fn check_mod_loader(mod_loaders: &[String], to_check: &ModLoader) -> bool {
 
 /// Get the latest compatible file from `files`
 pub fn curseforge<'a>(
-    files: &'a mut Vec<File>,
+    files: &'a mut [File],
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
     should_check_game_version: Option<bool>,
@@ -27,16 +27,12 @@ pub fn curseforge<'a>(
     files.sort_unstable_by_key(|file| file.file_date);
     files.reverse();
 
-    for file in files {
-        if (Some(false) == should_check_game_version
+    files.iter().find(|file| {
+        (Some(false) == should_check_game_version
             || check_game_version(&file.game_versions, game_version_to_check))
             && (Some(false) == should_check_mod_loader
                 || check_mod_loader(&file.game_versions, mod_loader_to_check))
-        {
-            return Some(file);
-        }
-    }
-    None
+    })
 }
 
 /// Get the latest compatible version and version file from `versions`

@@ -1,4 +1,4 @@
-use ferinth::structures::project_structs::ProjectSupportRange;
+use ferinth::structures::project::ProjectSupportRange;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use url::Url;

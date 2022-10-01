@@ -1,7 +1,7 @@
 use super::{check, DistributionDeniedError, Downloadable};
 use crate::config::structs::{Mod, ModIdentifier, ModLoader};
 use ferinth::{
-    structures::version_structs::{Version, VersionFile},
+    structures::version::{Version, VersionFile},
     Ferinth,
 };
 use furse::{structures::file_structs::File, Furse};

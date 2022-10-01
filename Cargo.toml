@@ -22,29 +22,31 @@ keywords = [
 gui = ["rfd"]
 
 [dependencies]
-rfd = { version = "0.10.0", default-features = false, optional = true, features = [
+rfd = { version = "~0.10.0", default-features = false, optional = true, features = [
     "xdg-portal",
 ] }
-reqwest = { version = "~0.11.11", default-features = false, features = [
+reqwest = { version = "~0.11.12", default-features = false, features = [
     "rustls-tls",
     "json",
 ] }
 octocrab = { version = "~0.17.0", default-features = false, features = [
     "rustls",
 ] }
-tokio = { version = "~1.21.0", default-features = false, features = ["fs"] }
-serde = { version = "~1.0.144", features = ["derive"] }
-clap = { version = "~3.2.20", features = ["derive"] }
+tokio = { version = "~1.21.2", default-features = false, features = ["fs"] }
+serde = { version = "~1.0.145", features = ["derive"] }
+clap = { version = "~4.0.7", features = ["derive"] }
 url = { version = "~2.2.2", features = ["serde"] }
 lazy_static = "~1.4.0"
 urlencoding = "~2.1.2"
 serde_json = "~1.0.85"
 dialoguer = "~0.10.2"
-thiserror = "~1.0.33"
-ferinth = "~2.6.1"
+thiserror = "~1.0.37"
+# ferinth = "~2.6.1"
+ferinth = { git = "https://github.com/gorilla-devs/ferinth.git" }
 # Bound to an older version because of octocrab
 bytes = "~1.1.0"
-furse = "~1.5.3"
+# furse = "~1.5.4"
+furse = { git = "https://github.com/gorilla-devs/furse.git" }
 home = "~0.5.3"
 size = "~0.4.0"
 zip = "~0.6.2"
