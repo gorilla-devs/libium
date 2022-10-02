@@ -6,6 +6,7 @@
 - Update dependencies
 - Clean up imports in `add.rs`
 - Switch to only XDG backend for `rfd`
+- `add::modrinth()` and `add::curseforge()` now directly accept the project struct
 
 ## `1.19.2`
 ### 18.07.2022

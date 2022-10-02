@@ -127,15 +127,11 @@ pub async fn github(
 /// Returns the project and the latest compatible version
 pub async fn modrinth(
     modrinth: Arc<ferinth::Ferinth>,
-    project_id: &str,
+    project: &ferinth::structures::project::Project,
     profile: &Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(
-    ferinth::structures::project::Project,
-    ferinth::structures::version::Version,
-)> {
-    let project = modrinth.get_project(project_id).await?;
+) -> Result<ferinth::structures::version::Version> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == project.title.to_lowercase()
@@ -154,7 +150,7 @@ pub async fn modrinth(
         )
         .ok_or(Error::Incompatible)?
         .1;
-        Ok((project, version))
+        Ok(version)
     }
 }
 
@@ -170,7 +166,8 @@ pub async fn curseforge(
 ) -> Result<furse::structures::file_structs::File> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name.to_lowercase() == project.name.to_lowercase() || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
+        mod_.name.to_lowercase() == project.name.to_lowercase()
+            || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
         return Err(Error::AlreadyAdded);
     }

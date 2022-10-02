@@ -41,11 +41,11 @@ urlencoding = "~2.1.2"
 serde_json = "~1.0.85"
 dialoguer = "~0.10.2"
 thiserror = "~1.0.37"
-# ferinth = "~2.6.1"
+# ferinth = "~2.7.0"
 ferinth = { git = "https://github.com/gorilla-devs/ferinth.git" }
 # Bound to an older version because of octocrab
 bytes = "~1.1.0"
-# furse = "~1.5.4"
+# furse = "~1.5.5"
 furse = { git = "https://github.com/gorilla-devs/furse.git" }
 home = "~0.5.3"
 size = "~0.4.0"
