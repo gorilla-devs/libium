@@ -64,25 +64,59 @@ pub fn github<'a>(
     should_check_mod_loader: Option<bool>,
 ) -> Option<&'a Asset> {
     for release in releases {
-        for asset in &release.assets {
-            if asset.name.contains("jar")
-                // Sources JARs should not be used with the regular game
-                && !asset.name.contains("sources")
-                && (Some(false) == should_check_game_version
-                    || asset.name.contains(game_version_to_check))
-                && (Some(false) == should_check_mod_loader
-                    || check_mod_loader(
-                        &asset
-                            .name
-                            .split('-')
-                            .map(str::to_string)
-                            .collect::<Vec<_>>(),
-                        mod_loader_to_check,
-                    ))
-            {
+        let candidate_assets: Vec<&Asset> = release
+            .assets
+            .iter()
+            .filter(|asset| asset.name.contains("jar") && !asset.name.contains("sources"))
+            .collect();
+
+        if let Some(asset) = candidate_assets
+            .iter()
+            .filter(|asset| {
+                github_name_check_heuristic(
+                    &asset.name,
+                    game_version_to_check,
+                    mod_loader_to_check,
+                    should_check_game_version,
+                    should_check_mod_loader,
+                )
+            })
+            .next()
+        {
+            return Some(asset);
+        }
+
+        if let &[asset] = candidate_assets.as_slice() {
+            if github_name_check_heuristic(
+                release
+                    .name
+                    .as_ref()
+                    .unwrap_or(&"".to_string())
+                    .to_lowercase()
+                    .as_str(),
+                game_version_to_check,
+                mod_loader_to_check,
+                should_check_game_version,
+                should_check_mod_loader,
+            ) {
                 return Some(asset);
             }
         }
     }
     None
+}
+
+fn github_name_check_heuristic<'a>(
+    name: &str,
+    game_version_to_check: &str,
+    mod_loader_to_check: &ModLoader,
+    should_check_game_version: Option<bool>,
+    should_check_mod_loader: Option<bool>,
+) -> bool {
+    return (Some(false) == should_check_game_version || name.contains(game_version_to_check))
+        && (Some(false) == should_check_mod_loader
+            || check_mod_loader(
+                &name.split('-').map(str::to_string).collect::<Vec<_>>(),
+                mod_loader_to_check,
+            ));
 }
