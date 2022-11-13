@@ -1,7 +1,7 @@
 # Changelog for Libium
 
-## `1.20.1`
-### 12.11.2022
+## `1.21.0`
+### 13.11.2022
 
 - Update dependencies, remove `urlencoding` and `size`
 - Remove unnecessary `Arc`s
