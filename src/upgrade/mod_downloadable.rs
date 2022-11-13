@@ -9,7 +9,6 @@ use octocrab::{
     models::repos::{Asset, Release},
     Octocrab,
 };
-use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -30,29 +29,15 @@ type Result<T> = std::result::Result<T, Error>;
 /// Also returns whether Fabric backwards compatibility was used
 pub fn get_latest_compatible_version(
     versions: &[Version],
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
+    game_version_to_check: Option<&str>,
+    mod_loader_to_check: Option<&ModLoader>,
 ) -> Option<(VersionFile, Version, bool)> {
-    match check::modrinth(
-        versions,
-        game_version_to_check,
-        mod_loader_to_check,
-        should_check_game_version,
-        should_check_mod_loader,
-    ) {
+    match check::modrinth(versions, game_version_to_check, mod_loader_to_check) {
         Some(some) => Some((some.0.clone(), some.1.clone(), false)),
         None => {
-            if mod_loader_to_check == &ModLoader::Quilt {
-                check::modrinth(
-                    versions,
-                    game_version_to_check,
-                    &ModLoader::Fabric,
-                    should_check_game_version,
-                    should_check_mod_loader,
-                )
-                .map(|some| (some.0.clone(), some.1.clone(), true))
+            if mod_loader_to_check == Some(&ModLoader::Quilt) {
+                check::modrinth(versions, game_version_to_check, Some(&ModLoader::Fabric))
+                    .map(|some| (some.0.clone(), some.1.clone(), true))
             } else {
                 None
             }
@@ -64,29 +49,15 @@ pub fn get_latest_compatible_version(
 /// Also returns whether Fabric backwards compatibility was used
 pub fn get_latest_compatible_file(
     mut files: Vec<File>,
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
+    game_version_to_check: Option<&str>,
+    mod_loader_to_check: Option<&ModLoader>,
 ) -> Option<(File, bool)> {
-    match check::curseforge(
-        &mut files,
-        game_version_to_check,
-        mod_loader_to_check,
-        should_check_game_version,
-        should_check_mod_loader,
-    ) {
+    match check::curseforge(&mut files, game_version_to_check, mod_loader_to_check) {
         Some(some) => Some((some.clone(), false)),
         None => {
-            if mod_loader_to_check == &ModLoader::Quilt {
-                check::curseforge(
-                    &mut files,
-                    game_version_to_check,
-                    &ModLoader::Fabric,
-                    should_check_game_version,
-                    should_check_mod_loader,
-                )
-                .map(|some| (some.clone(), true))
+            if mod_loader_to_check == Some(&ModLoader::Quilt) {
+                check::curseforge(&mut files, game_version_to_check, Some(&ModLoader::Fabric))
+                    .map(|some| (some.clone(), true))
             } else {
                 None
             }
@@ -98,29 +69,15 @@ pub fn get_latest_compatible_file(
 /// Also returns whether Fabric backwards compatibility was used
 pub fn get_latest_compatible_asset(
     releases: &[Release],
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
+    game_version_to_check: Option<&str>,
+    mod_loader_to_check: Option<&ModLoader>,
 ) -> Option<(Asset, bool)> {
-    match check::github(
-        releases,
-        game_version_to_check,
-        mod_loader_to_check,
-        should_check_game_version,
-        should_check_mod_loader,
-    ) {
+    match check::github(releases, game_version_to_check, mod_loader_to_check) {
         Some(some) => Some((some.clone(), false)),
         None => {
-            if mod_loader_to_check == &ModLoader::Quilt {
-                check::github(
-                    releases,
-                    game_version_to_check,
-                    &ModLoader::Fabric,
-                    should_check_game_version,
-                    should_check_mod_loader,
-                )
-                .map(|some| (some.clone(), true))
+            if mod_loader_to_check == Some(&ModLoader::Quilt) {
+                check::github(releases, game_version_to_check, Some(&ModLoader::Fabric))
+                    .map(|some| (some.clone(), true))
             } else {
                 None
             }
@@ -131,20 +88,29 @@ pub fn get_latest_compatible_asset(
 /// Get the latest compatible downloadable from the `mod_` provided.
 /// Also returns whether fabric backwards compatibility was used
 pub async fn get_latest_compatible_downloadable(
-    modrinth: Arc<Ferinth>,
-    curseforge: Arc<Furse>,
-    github: Arc<Octocrab>,
+    modrinth: &Ferinth,
+    curseforge: &Furse,
+    github: &Octocrab,
     mod_: &Mod,
     game_version_to_check: &str,
     mod_loader_to_check: &ModLoader,
 ) -> Result<(Downloadable, bool)> {
+    let game_version_to_check = if mod_.check_game_version == Some(false) {
+        None
+    } else {
+        Some(game_version_to_check)
+    };
+    let mod_loader_to_check = if mod_.check_mod_loader == Some(false) {
+        None
+    } else {
+        Some(mod_loader_to_check)
+    };
+
     match &mod_.identifier {
         ModIdentifier::CurseForgeProject(project_id) => get_latest_compatible_file(
             curseforge.get_mod_files(*project_id).await?,
             game_version_to_check,
             mod_loader_to_check,
-            mod_.check_game_version,
-            mod_.check_mod_loader,
         )
         .map_or_else(
             || Err(Error::NoCompatibleFile),
@@ -154,8 +120,6 @@ pub async fn get_latest_compatible_downloadable(
             &modrinth.list_versions(project_id).await?,
             game_version_to_check,
             mod_loader_to_check,
-            mod_.check_game_version,
-            mod_.check_mod_loader,
         )
         .map_or_else(
             || Err(Error::NoCompatibleFile),
@@ -171,8 +135,6 @@ pub async fn get_latest_compatible_downloadable(
                 .items,
             game_version_to_check,
             mod_loader_to_check,
-            mod_.check_game_version,
-            mod_.check_mod_loader,
         )
         .map_or_else(
             || Err(Error::NoCompatibleFile),

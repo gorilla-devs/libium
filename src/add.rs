@@ -3,7 +3,6 @@ use crate::{
     upgrade::mod_downloadable,
 };
 use reqwest::StatusCode;
-use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
@@ -109,10 +108,16 @@ pub async fn github(
     if contains_jar_asset {
         let asset = mod_downloadable::get_latest_compatible_asset(
             &releases,
-            &profile.game_version,
-            &profile.mod_loader,
-            should_check_game_version,
-            should_check_mod_loader,
+            if should_check_game_version == Some(false) {
+                None
+            } else {
+                Some(&profile.game_version)
+            },
+            if should_check_mod_loader == Some(false) {
+                None
+            } else {
+                Some(&profile.mod_loader)
+            },
         )
         .ok_or(Error::Incompatible)?
         .0;
@@ -126,7 +131,7 @@ pub async fn github(
 ///
 /// Returns the project and the latest compatible version
 pub async fn modrinth(
-    modrinth: Arc<ferinth::Ferinth>,
+    modrinth: &ferinth::Ferinth,
     project: &ferinth::structures::project::Project,
     profile: &Profile,
     should_check_game_version: Option<bool>,
@@ -143,10 +148,16 @@ pub async fn modrinth(
     } else {
         let version = mod_downloadable::get_latest_compatible_version(
             &modrinth.list_versions(&project.id).await?,
-            &profile.game_version,
-            &profile.mod_loader,
-            should_check_game_version,
-            should_check_mod_loader,
+            if should_check_game_version == Some(false) {
+                None
+            } else {
+                Some(&profile.game_version)
+            },
+            if should_check_mod_loader == Some(false) {
+                None
+            } else {
+                Some(&profile.mod_loader)
+            },
         )
         .ok_or(Error::Incompatible)?
         .1;
@@ -158,7 +169,7 @@ pub async fn modrinth(
 ///
 /// Returns the mod and the latest compatible file
 pub async fn curseforge(
-    curseforge: Arc<furse::Furse>,
+    curseforge: &furse::Furse,
     project: &furse::structures::mod_structs::Mod,
     profile: &Profile,
     should_check_game_version: Option<bool>,
@@ -169,31 +180,22 @@ pub async fn curseforge(
         mod_.name.to_lowercase() == project.name.to_lowercase()
             || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
-        return Err(Error::AlreadyAdded);
-    }
-
-    if Some(false) == project.allow_mod_distribution {
-        return Err(Error::DistributionDenied);
-    }
-
-    let files = curseforge.get_mod_files(project.id).await?;
-    let mut contains_jar_file = false;
-
-    // Check if the files are JAR files
-    for file in &files {
-        if file.file_name.contains("jar") {
-            contains_jar_file = true;
-            break;
-        }
-    }
-
-    if contains_jar_file {
+        Err(Error::AlreadyAdded)
+    } else if Some(false) == project.allow_mod_distribution {
+        Err(Error::DistributionDenied)
+    } else if project.links.website_url.as_str().contains("mc-mods") {
         let file = mod_downloadable::get_latest_compatible_file(
-            files,
-            &profile.game_version,
-            &profile.mod_loader,
-            should_check_game_version,
-            should_check_mod_loader,
+            curseforge.get_mod_files(project.id).await?,
+            if should_check_game_version == Some(false) {
+                None
+            } else {
+                Some(&profile.game_version)
+            },
+            if should_check_mod_loader == Some(false) {
+                None
+            } else {
+                Some(&profile.mod_loader)
+            },
         )
         .ok_or(Error::Incompatible)?
         .0;

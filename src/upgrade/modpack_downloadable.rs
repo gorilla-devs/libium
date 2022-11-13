@@ -2,7 +2,8 @@ use super::{DistributionDeniedError, Downloadable};
 use crate::{version_ext::VersionExt, HOME};
 use ferinth::Ferinth;
 use furse::Furse;
-use std::{fs::File, sync::Arc};
+use reqwest::Client;
+use std::fs::File;
 use tokio::fs::create_dir_all;
 
 #[derive(Debug, thiserror::Error)]
@@ -32,14 +33,14 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// Download and open the latest file of `project_id`
 pub async fn download_curseforge_modpack<TF, UF>(
-    curseforge: Arc<Furse>,
+    curseforge: &Furse,
     project_id: i32,
     total: TF,
     update: UF,
 ) -> Result<File>
 where
-    TF: Fn(u64) + Send,
-    UF: Fn(usize) + Send,
+    TF: FnOnce(u64) + Send,
+    UF: FnMut(usize) + Send,
 {
     let latest_file = curseforge.get_mod_files(project_id).await?.swap_remove(0);
     let cache_dir = HOME.join(".config").join("ferium").join(".cache");
@@ -48,14 +49,17 @@ where
         let mut latest_file: Downloadable = latest_file.try_into()?;
         latest_file.output = latest_file.filename().into();
         create_dir_all(&cache_dir).await?;
-        latest_file.download(&cache_dir, total, update).await?;
+        total(latest_file.length);
+        latest_file
+            .download(&Client::new(), &cache_dir, update)
+            .await?;
     }
     Ok(File::open(modpack_path)?)
 }
 
 /// Download and open the latest version of `project_id`
 pub async fn download_modrinth_modpack<TF, UF>(
-    modrinth: Arc<Ferinth>,
+    modrinth: &Ferinth,
     project_id: &str,
     total: TF,
     update: UF,
@@ -64,22 +68,22 @@ where
     TF: Fn(u64) + Send,
     UF: Fn(usize) + Send,
 {
-    let version_file = modrinth
+    let mut version_file: Downloadable = modrinth
         .list_versions(project_id)
         .await?
         .swap_remove(0)
-        .into_version_file();
-    let version_file = Downloadable {
-        download_url: version_file.url,
-        output: version_file.filename.into(),
-        size: Some(version_file.size as u64),
-    };
+        .into_version_file()
+        .into();
+    version_file.output = version_file.filename().into();
 
     let cache_dir = HOME.join(".config").join("ferium").join(".cache");
     create_dir_all(&cache_dir).await?;
     let modpack_path = cache_dir.join(&version_file.output);
     if !modpack_path.exists() {
-        version_file.download(&cache_dir, total, update).await?;
+        total(version_file.length);
+        version_file
+            .download(&Client::new(), &cache_dir, update)
+            .await?;
     }
     Ok(File::open(modpack_path)?)
 }

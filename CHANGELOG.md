@@ -1,5 +1,23 @@
 # Changelog for Libium
 
+## `1.20.1`
+### 12.11.2022
+
+- Update dependencies, remove `urlencoding` and `size`
+- Remove unnecessary `Arc`s
+- Use the website URL to determine that a project is a a mod/modpack on CF
+- Simplify `config` module methods
+- Remove redundant doc-comments
+- File picker now uses sync dialogue on all platforms
+- Edit `file_picker.rs` to use the updated feature flags, fixes [gorilla-devs/ferium#228](https://github.com/gorilla-devs/ferium/issues/228)
+- The file picker function will now resolve `~` and `.` to the home and cwd respectively
+- Added the android PojavLauncher to the default minecraft directory function
+- Change the function signature of `check` functions
+- Change `Downloadable`'s `size` field into `length`, remove the `Option`, and make it a number
+- Remove the `total` closure in `Downloadable::download()`
+- Remove `Downloadable::from_file_id()`
+- Edit functions in `mod_downloadable.rs` to match those of `check.rs`
+
 ## `1.20.0`
 ### 03.09.2022
 

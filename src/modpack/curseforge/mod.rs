@@ -5,7 +5,7 @@ use std::io::{Read, Seek};
 use structs::Manifest;
 use zip::{result::ZipResult, ZipArchive};
 
-/// Read the `input`'s manifest file to a string
+/// Read the `input`'s manifest file
 pub fn read_manifest_file(input: impl Read + Seek) -> ZipResult<String> {
     let mut buffer = String::new();
     ZipArchive::new(input)?

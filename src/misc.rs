@@ -20,8 +20,8 @@ pub async fn get_major_mc_versions(mut count: usize) -> Result<Vec<String>, feri
     Ok(major_versions)
 }
 
-/// Get the default Minecraft instance directory based on the current OS
-/// If the OS doesn't match "macos", "linux", or "windows", this function will panic
+/// Get the default Minecraft instance directory based on the current OS.
+/// If the OS doesn't match `"macos"`, `"linux"`, `"windows"`, or `"android"`, this function will panic.
 pub fn get_minecraft_dir() -> PathBuf {
     match std::env::consts::OS {
         "macos" => HOME
@@ -30,6 +30,13 @@ pub fn get_minecraft_dir() -> PathBuf {
             .join("minecraft"),
         "linux" => HOME.join(".minecraft"),
         "windows" => HOME.join("AppData").join("Roaming").join(".minecraft"),
-        _ => unreachable!(),
+        "android" => PathBuf::from("/")
+            .join("storage")
+            .join("emulated")
+            .join("0")
+            .join("games")
+            .join("PojavLauncher")
+            .join(".minecraft"),
+        _ => panic!("Unsupported OS"),
     }
 }

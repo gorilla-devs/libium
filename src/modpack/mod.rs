@@ -21,18 +21,17 @@ pub async fn extract_zip(input: impl Read + Seek, output_dir: &Path) -> ZipResul
         let filepath = file
             .enclosed_name()
             .ok_or(ZipError::InvalidArchive("Invalid file path"))?;
+        let filepath = output_dir.join(filepath);
 
-        let outpath = output_dir.join(filepath);
-
-        if file.name().ends_with('/') {
-            create_dir_all(&outpath).await?;
+        if file.is_dir() {
+            create_dir_all(&filepath).await?;
         } else {
-            if let Some(up_dir) = outpath.parent() {
+            if let Some(up_dir) = filepath.parent() {
                 if !up_dir.exists() {
                     create_dir_all(&up_dir).await?;
                 }
             }
-            copy(&mut file, &mut File::create(&outpath)?)?;
+            copy(&mut file, &mut File::create(&filepath)?)?;
         }
     }
     Ok(())
