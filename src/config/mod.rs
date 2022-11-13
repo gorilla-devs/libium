@@ -21,7 +21,13 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
     if !config_file_path.exists() {
         // Create the config file directory
         create_dir_all(config_file_path.parent().unwrap()).await?;
-        let mut file = File::create(config_file_path).await?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .create(true)
+            .open(config_file_path)
+            .await?;
         write_file(
             &mut file,
             &Config {

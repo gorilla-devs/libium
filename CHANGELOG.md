@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.21.1`
+### 13.11.2022
+
+Fixed a bug where the file returned from `config::get_file()` is not readable if it's newly created
+
 ## `1.21.0`
 ### 13.11.2022
 
