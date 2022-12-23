@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.21.2"
+version = "1.22.0"
 edition = "2021"
 authors = [
     "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
@@ -22,26 +22,22 @@ keywords = [
 gui = ["rfd"]
 
 [dependencies]
-rfd = { version = "~0.10.0", default-features = false, optional = true, features = [
+rfd = { version = "0.10", default-features = false, optional = true, features = [
     "xdg-portal",
 ] }
-reqwest = { version = "~0.11.13", default-features = false, features = [
+octocrab = { version = "0.17", default-features = false, features = ["rustls"] }
+reqwest = { version = "0.11", default-features = false, features = [
     "rustls-tls",
-    "json",
 ] }
-octocrab = { version = "~0.17.0", default-features = false, features = [
-    "rustls",
-] }
-tokio = { version = "~1.22.0", default-features = false, features = ["fs"] }
-serde = { version = "~1.0.149", features = ["derive"] }
-clap = { version = "~4.0.29", features = ["derive"] }
-url = { version = "~2.2.2", features = ["serde"] }
-lazy_static = "~1.4.0"
-serde_json = "~1.0.89"
-dialoguer = "~0.10.2"
-thiserror = "~1.0.37"
-ferinth = "~2.7.2"
-bytes = "~1.1.0"
-furse = "~1.5.7"
-home = "~0.5.4"
-zip = "~0.6.3"
+tokio = { version = "1.23", default-features = false, features = ["fs"] }
+serde = { version = "1.0", features = ["derive"] }
+clap = { version = "4.0", features = ["derive"] }
+url = { version = "2.3", features = ["serde"] }
+lazy_static = "1.4"
+serde_json = "1.0"
+dialoguer = "0.10"
+thiserror = "1.0"
+ferinth = "2.7"
+furse = "1.5"
+home = "0.5"
+zip = "0.6"
