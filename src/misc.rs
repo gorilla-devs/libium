@@ -3,21 +3,16 @@ use ferinth::Ferinth;
 use std::path::PathBuf;
 
 /// Get a maximum of `count` number of the latest major versions of Minecraft
-pub async fn get_major_mc_versions(mut count: usize) -> Result<Vec<String>, ferinth::Error> {
-    let versions = Ferinth::default().list_game_versions().await?;
-    let mut major_versions = Vec::new();
+pub async fn get_major_mc_versions() -> Result<Vec<String>, ferinth::Error> {
+    let all_versions = Ferinth::default().list_game_versions().await?;
 
-    for version in versions {
-        if count == 0 {
-            break;
-        }
-        if version.major {
-            major_versions.push(version.version);
-            count -= 1;
-        }
-    }
+    let string_versions: Vec<String> = all_versions
+        .iter()
+        .filter(|x| x.major)
+        .map(|x| x.version.clone())
+        .collect();
 
-    Ok(major_versions)
+    Ok(string_versions)
 }
 
 /// Get the default Minecraft instance directory based on the current OS.
