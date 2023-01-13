@@ -2,7 +2,7 @@ use crate::HOME;
 use ferinth::Ferinth;
 use std::path::PathBuf;
 
-/// Get a maximum of `count` number of the latest major versions of Minecraft
+/// Get all Minecraft versions labeled as "Major"
 pub async fn get_major_mc_versions() -> Result<Vec<String>, ferinth::Error> {
     let all_versions = Ferinth::default().list_game_versions().await?;
 
