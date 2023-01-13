@@ -2,17 +2,22 @@ use crate::HOME;
 use ferinth::Ferinth;
 use std::path::PathBuf;
 
-/// Get all Minecraft versions labeled as "Major"
-pub async fn get_major_mc_versions() -> Result<Vec<String>, ferinth::Error> {
+/// Get all Minecraft versions labeled as "Major".
+pub async fn get_all_major_mc_versions() -> Result<Vec<String>, ferinth::Error> {
     let all_versions = Ferinth::default().list_game_versions().await?;
 
     let string_versions: Vec<String> = all_versions
-        .iter()
+        .into_iter()
         .filter(|x| x.major)
-        .map(|x| x.version.clone())
+        .map(|x| x.version)
         .collect();
 
     Ok(string_versions)
+}
+
+// Get `count` number of the most recent Minecraft versions.
+pub async fn get_major_mc_versions(count: usize) -> Result<Vec<String>, ferinth::Error> {
+    Ok(get_all_major_mc_versions().await?.into_iter().take(count).collect::<Vec<String>>())
 }
 
 /// Get the default Minecraft instance directory based on the current OS.
