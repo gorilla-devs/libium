@@ -10,7 +10,7 @@ use reqwest::{Client, Url};
 use std::path::{Path, PathBuf};
 use tokio::{
     fs::{rename, OpenOptions},
-    io::AsyncWriteExt,
+    io::{AsyncWriteExt, BufWriter},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -29,7 +29,7 @@ pub struct Downloadable {
     /// Where to output the file relative to the output directory (Minecraft instance directory)
     pub output: PathBuf,
     /// The length of the file in bytes
-    pub length: u64,
+    pub length: usize,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -48,7 +48,7 @@ impl TryFrom<File> for Downloadable {
                 "mods"
             })
             .join(file.file_name),
-            length: file.file_length as u64,
+            length: file.file_length,
         })
     }
 }
@@ -62,7 +62,7 @@ impl From<VersionFile> for Downloadable {
                 "mods"
             })
             .join(file.filename),
-            length: file.size as u64,
+            length: file.size,
         }
     }
 }
@@ -80,7 +80,7 @@ impl From<Asset> for Downloadable {
         Self {
             download_url: asset.browser_download_url,
             output: PathBuf::from("mods").join(asset.name),
-            length: asset.size as u64,
+            length: asset.size as usize,
         }
     }
 }
@@ -96,7 +96,7 @@ impl Downloadable {
         client: &Client,
         output_dir: &Path,
         mut update: UF,
-    ) -> Result<(u64, String)>
+    ) -> Result<(usize, String)>
     where
         UF: FnMut(usize) + Send,
     {
@@ -104,17 +104,21 @@ impl Downloadable {
         let mut response = client.get(url).send().await?;
         let out_file_path = output_dir.join(&self.output);
         let temp_file_path = out_file_path.with_extension("part");
-        let mut temp_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .append(true)
-            .create(true)
-            .open(&temp_file_path)
-            .await?;
+        let mut temp_file = BufWriter::with_capacity(
+            size,
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .append(true)
+                .create(true)
+                .open(&temp_file_path)
+                .await?,
+        );
         while let Some(chunk) = response.chunk().await? {
-            update(chunk.len());
             temp_file.write_all(&chunk).await?;
+            update(chunk.len());
         }
+        temp_file.shutdown().await?;
         rename(&temp_file_path, out_file_path).await?;
         Ok((size, filename))
     }
