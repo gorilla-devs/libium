@@ -1,20 +1,28 @@
 pub mod structs;
 
-use serde_json::error::Result;
-use std::io::{Read, Seek};
-use structs::Manifest;
-use zip::{result::ZipResult, ZipArchive};
+use async_zip::{error::Result, read::seek::ZipFileReader, StoredZipEntry};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek};
 
 /// Read the `input`'s manifest file
-pub fn read_manifest_file(input: impl Read + Seek) -> ZipResult<String> {
+pub async fn read_manifest_file(
+    input: impl AsyncRead + AsyncSeek + Unpin,
+) -> Result<Option<String>> {
     let mut buffer = String::new();
-    ZipArchive::new(input)?
-        .by_name("manifest.json")?
-        .read_to_string(&mut buffer)?;
-    Ok(buffer)
-}
-
-/// Deserialise the given `input` into a manifest
-pub fn deser_manifest(input: &str) -> Result<Manifest> {
-    serde_json::from_str(input)
+    let zip_file = ZipFileReader::new(input).await?;
+    if let Some(i) = zip_file
+        .file()
+        .entries()
+        .iter()
+        .map(StoredZipEntry::entry)
+        .position(|entry| entry.filename() == "manifest.json")
+    {
+        zip_file
+            .into_entry(i)
+            .await?
+            .read_to_string(&mut buffer)
+            .await?;
+        Ok(Some(buffer))
+    } else {
+        Ok(None)
+    }
 }

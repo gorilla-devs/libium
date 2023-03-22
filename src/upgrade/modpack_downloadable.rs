@@ -3,8 +3,7 @@ use crate::{version_ext::VersionExt, HOME};
 use ferinth::Ferinth;
 use furse::Furse;
 use reqwest::Client;
-use std::fs::File;
-use tokio::fs::create_dir_all;
+use tokio::fs::{create_dir_all, File};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -25,7 +24,7 @@ pub enum Error {
     #[error("{}", .0)]
     IOError(#[from] std::io::Error),
     #[error("{}", .0)]
-    ZipError(#[from] zip::result::ZipError),
+    ZipError(#[from] async_zip::error::ZipError),
     #[error("{}", .0)]
     JSONError(#[from] serde_json::error::Error),
 }
@@ -39,7 +38,7 @@ pub async fn download_curseforge_modpack<TF, UF>(
     update: UF,
 ) -> Result<File>
 where
-    TF: FnOnce(u64) + Send,
+    TF: FnOnce(usize) + Send,
     UF: FnMut(usize) + Send,
 {
     let latest_file = curseforge.get_mod_files(project_id).await?.swap_remove(0);
@@ -54,7 +53,7 @@ where
             .download(&Client::new(), &cache_dir, update)
             .await?;
     }
-    Ok(File::open(modpack_path)?)
+    Ok(File::open(modpack_path).await?)
 }
 
 /// Download and open the latest version of `project_id`
@@ -65,7 +64,7 @@ pub async fn download_modrinth_modpack<TF, UF>(
     update: UF,
 ) -> Result<File>
 where
-    TF: Fn(u64) + Send,
+    TF: Fn(usize) + Send,
     UF: Fn(usize) + Send,
 {
     let mut version_file: Downloadable = modrinth
@@ -85,5 +84,5 @@ where
             .download(&Client::new(), &cache_dir, update)
             .await?;
     }
-    Ok(File::open(modpack_path)?)
+    Ok(File::open(modpack_path).await?)
 }

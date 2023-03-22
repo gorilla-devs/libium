@@ -1,6 +1,5 @@
 use crate::HOME;
 use std::{
-    env::current_dir,
     io::Result,
     path::{Path, PathBuf},
 };
@@ -17,8 +16,7 @@ fn show_file_picker(default: &Path, prompt: &str) -> Option<PathBuf> {
 #[cfg(not(feature = "gui"))]
 /// Use a terminal input to pick a file, with a `default` path
 fn show_file_picker(default: &Path, prompt: &str) -> Option<PathBuf> {
-    use dialoguer::{theme::ColorfulTheme, Input};
-    Input::with_theme(&ColorfulTheme::default())
+    dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
         .default(default.display().to_string())
         .with_prompt(prompt)
         .report(false)
@@ -27,23 +25,26 @@ fn show_file_picker(default: &Path, prompt: &str) -> Option<PathBuf> {
         .map(Into::into)
 }
 
-pub fn pick_folder(default: &Path, prompt: &str) -> Result<Option<PathBuf>> {
+/// Pick a folder using  the terminal or file picker (depending on the features flags set)
+///
+/// For terminal output, display a `prompt`, and reply with the selected `name`
+pub fn pick_folder(default: &Path, prompt: &str, name: &str) -> Result<Option<PathBuf>> {
     let input = show_file_picker(default, prompt);
     Ok(match input {
         Some(input) => {
             let mut path = PathBuf::new();
             let components = input.components();
             for c in components {
-                path = path.join(if c.as_os_str() == "~" {
-                    HOME.to_owned()
-                } else if c.as_os_str() == "." {
-                    current_dir()?
+                path.push(if c.as_os_str() == "~" {
+                    HOME.as_os_str()
                 } else {
-                    PathBuf::from(c.as_os_str())
+                    c.as_os_str()
                 });
             }
+            path = path.canonicalize()?;
             println!(
-                "✔ \x1b[01mOutput Directory\x1b[0m · \x1b[32m{}\x1b[0m",
+                "✔ \x1b[01m{}\x1b[0m · \x1b[32m{}\x1b[0m",
+                name,
                 path.display()
             );
             Some(path)
