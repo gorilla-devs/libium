@@ -1,7 +1,7 @@
 # Changelog for Libium
 
 ## `1.23.0`
-### TBD
+### 22.03.2023
 
 - Switch to `async_zip`
 - Add `name` argument to `pick_folder()`
@@ -9,9 +9,10 @@
 - Reading manifest or metadata files now returns an optional result
 - Removed the rather redundant `deser_manifest()` and `deser_metadata()` functions
 - Add a recursive `compress_dir()` function
-- Tweak Modrinth modpack structs to use some of ferinth's types
+- Tweak Modrinth modpack structs to use ferinth's types
 - Tweak `Downloadable`'s file length field's type
-- Wrap `Downloadable::download()`'s opened file in a `BufWriter`, also only update the progress bar after the write is finished
+- Wrap `Downloadable::download()`'s opened file in a `BufWriter`
+- Only update the progress bar after the write is finished
 
 ## `1.22.1`
 ### 01.01.2023

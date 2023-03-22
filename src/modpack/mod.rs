@@ -36,10 +36,10 @@ pub async fn extract_zip(
     Ok(())
 }
 
-/// Compress the input `dir`ectory to the given `writer`
+/// Compress the input `dir`ectory (starting with `source`) to the given `writer`
 ///
 /// Uses recursion to resolve directories.
-/// Resolves symlinks as well
+/// Resolves symlinks as well.
 #[async_recursion]
 pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send>(
     writer: &mut ZipFileWriter<W>,
