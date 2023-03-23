@@ -48,7 +48,7 @@ pub fn pick_folder(default: &Path, prompt: &str, name: &str) -> Result<Option<Pa
                 path.display()
             );
             Some(path)
-        },
+        }
         None => None,
     })
 }

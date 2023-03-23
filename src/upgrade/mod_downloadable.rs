@@ -41,7 +41,7 @@ pub fn get_latest_compatible_version(
             } else {
                 None
             }
-        },
+        }
     }
 }
 
@@ -61,7 +61,7 @@ pub fn get_latest_compatible_file(
             } else {
                 None
             }
-        },
+        }
     }
 }
 
@@ -81,7 +81,7 @@ pub fn get_latest_compatible_asset(
             } else {
                 None
             }
-        },
+        }
     }
 }
 

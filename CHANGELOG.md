@@ -1,7 +1,7 @@
 # Changelog for Libium
 
 ## `1.23.0`
-### 22.03.2023
+### 23.03.2023
 
 - Switch to `async_zip`
 - Add `name` argument to `pick_folder()`
