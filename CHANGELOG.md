@@ -13,6 +13,7 @@
 - Tweak `Downloadable`'s file length field's type
 - Wrap `Downloadable::download()`'s opened file in a `BufWriter`
 - Only update the progress bar after the write is finished
+- Remove `mutex_ext` and `force_lock()`
 
 ## `1.22.1`
 ### 01.01.2023

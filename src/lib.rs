@@ -2,7 +2,6 @@ pub mod add;
 pub mod config;
 pub mod file_picker;
 pub mod modpack;
-pub mod mutex_ext;
 pub mod upgrade;
 pub mod version_ext;
 
