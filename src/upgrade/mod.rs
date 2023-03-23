@@ -107,8 +107,6 @@ impl Downloadable {
         let mut temp_file = BufWriter::with_capacity(
             size,
             OpenOptions::new()
-                .read(true)
-                .write(true)
                 .append(true)
                 .create(true)
                 .open(&temp_file_path)
