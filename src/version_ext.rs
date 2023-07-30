@@ -7,22 +7,17 @@ pub trait VersionExt {
 
 impl VersionExt for Version {
     fn get_version_file(&self) -> &VersionFile {
-        for file in &self.files {
-            if file.primary {
-                return file;
-            }
-        }
-        &self.files[0]
+        self.files
+            .iter()
+            .find(|f| f.primary)
+            .unwrap_or(&self.files[0])
     }
 
     fn into_version_file(self) -> VersionFile {
-        let mut files = Vec::new();
-        for file in self.files {
-            if file.primary {
-                return file;
-            }
-            files.push(file)
-        }
-        files.swap_remove(0)
+        let fallback = self.files[0].clone();
+        self.files
+            .into_iter()
+            .find(|f| f.primary)
+            .unwrap_or(fallback)
     }
 }

@@ -6,6 +6,7 @@ use reqwest::Client;
 use tokio::fs::{create_dir_all, File};
 
 #[derive(Debug, thiserror::Error)]
+#[error("{}: {}", self, .0)]
 pub enum Error {
     #[error(
         "The developer of this modpack has denied third party applications from downloading it"
@@ -13,19 +14,12 @@ pub enum Error {
     /// The user can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
     /// However, they will have to manually update the modpack file
     DistributionDenied(#[from] DistributionDeniedError),
-    #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
-    #[error("{}", .0)]
     CurseForgeError(#[from] furse::Error),
-    #[error("{}", .0)]
     ReqwestError(#[from] reqwest::Error),
-    #[error("{}", .0)]
     DownloadError(#[from] super::Error),
-    #[error("{}", .0)]
     IOError(#[from] std::io::Error),
-    #[error("{}", .0)]
     ZipError(#[from] async_zip::error::ZipError),
-    #[error("{}", .0)]
     JSONError(#[from] serde_json::error::Error),
 }
 type Result<T> = std::result::Result<T, Error>;

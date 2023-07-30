@@ -5,7 +5,7 @@ use std::{
 };
 
 #[cfg(feature = "gui")]
-/// Use the system file picker to pick a file, with a `default` path that is [not supported on XDG](https://github.com/PolyMeilex/rfd/issues/42)
+/// Use the system file picker to pick a file, with a `default` path (that is [not supported on XDG](https://github.com/PolyMeilex/rfd/issues/42))
 fn show_file_picker(default: &Path, prompt: &str) -> Option<PathBuf> {
     rfd::FileDialog::new()
         .set_directory(default)

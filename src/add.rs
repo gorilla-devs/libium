@@ -4,28 +4,28 @@ use crate::{
 };
 use reqwest::StatusCode;
 
-type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
+#[error("{}: {}", self, .0)]
 pub enum Error {
-    #[error("The developer of this mod has denied third party applications from downloading it")]
+    #[error(
+        "The developer of this project has denied third party applications from downloading it"
+    )]
     /// The user can manually download the mod and place it in the `user` folder of the output directory to mitigate this.
-    /// However, they will have to manually update the mod
+    /// However, they will have to manually update the mod.
     DistributionDenied,
-    #[error("The project/repository has already been added")]
+    #[error("The project has already been added")]
     AlreadyAdded,
-    #[error("The project/repository does not exist")]
+    #[error("The project does not exist")]
     DoesNotExist,
-    #[error("The project/repository is not compatible")]
+    #[error("The project is not compatible")]
     Incompatible,
-    #[error("The project/repository is not a mod")]
+    #[error("The project is not a mod")]
     NotAMod,
-    #[error("{}", .0)]
     GitHubError(octocrab::Error),
-    #[error("{}", .0)]
     ModrinthError(ferinth::Error),
-    #[error("{}", .0)]
     CurseForgeError(furse::Error),
 }
+type Result<T> = std::result::Result<T, Error>;
 
 impl From<furse::Error> for Error {
     fn from(err: furse::Error) -> Self {
@@ -57,15 +57,12 @@ impl From<ferinth::Error> for Error {
 
 impl From<octocrab::Error> for Error {
     fn from(err: octocrab::Error) -> Self {
-        if let octocrab::Error::Http { source, .. } = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::DoesNotExist
-            } else {
-                Self::GitHubError(err)
+        if let octocrab::Error::GitHub { source, .. } = &err {
+            if &source.message == "Not Found" {
+                return Self::DoesNotExist;
             }
-        } else {
-            Self::GitHubError(err)
         }
+        Self::GitHubError(err)
     }
 }
 

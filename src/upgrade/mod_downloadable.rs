@@ -11,14 +11,11 @@ use octocrab::{
 };
 
 #[derive(Debug, thiserror::Error)]
+#[error("{}: {}", self, .0)]
 pub enum Error {
-    #[error("{}", .0)]
     DistributionDenied(#[from] DistributionDeniedError),
-    #[error("{}", .0)]
     ModrinthError(#[from] ferinth::Error),
-    #[error("{}", .0)]
     CurseForgeError(#[from] furse::Error),
-    #[error("{}", .0)]
     GitHubError(#[from] octocrab::Error),
     #[error("No compatible file was found")]
     NoCompatibleFile,
