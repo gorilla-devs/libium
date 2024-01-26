@@ -1,5 +1,5 @@
 use crate::{
-    config::structs::{ModIdentifier, Profile},
+    config::structs::{Mod, ModIdentifier, Profile},
     upgrade::mod_downloadable,
 };
 use reqwest::StatusCode;
@@ -66,15 +66,16 @@ impl From<octocrab::Error> for Error {
     }
 }
 
-/// Check if the repo of `repo_handler` exists, releases mods, and is compatible with the current profile
+/// Check if the repo of `repo_handler` exists, releases mods,
+/// and is compatible `profile`. If so, add its ID to it.
 ///
-/// Returns the repository and the latest compatible asset
+/// Returns the name of the repository to display to the user
 pub async fn github(
     repo_handler: &octocrab::repos::RepoHandler<'_>,
-    profile: &Profile,
+    profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<(octocrab::models::Repository, octocrab::models::repos::Asset)> {
+) -> Result<String> {
     let repo = repo_handler.get().await?;
     let repo_name = (
         repo.owner.as_ref().unwrap().login.clone(),
@@ -102,48 +103,68 @@ pub async fn github(
         }
     }
 
-    if contains_jar_asset {
-        let asset = mod_downloadable::get_latest_compatible_asset(
-            &releases,
-            if should_check_game_version == Some(false) {
-                None
-            } else {
-                Some(&profile.game_version)
-            },
-            if should_check_mod_loader == Some(false) {
-                None
-            } else {
-                Some(&profile.mod_loader)
-            },
-        )
-        .ok_or(Error::Incompatible)?
-        .0;
-        Ok((repo, asset))
-    } else {
-        Err(Error::NotAMod)
+    if !contains_jar_asset {
+        return Err(Error::NotAMod);
     }
+    mod_downloadable::get_latest_compatible_asset(
+        &releases,
+        if should_check_game_version == Some(false) {
+            None
+        } else {
+            Some(&profile.game_version)
+        },
+        if should_check_mod_loader == Some(false) {
+            None
+        } else {
+            Some(&profile.mod_loader)
+        },
+    )
+    .ok_or(Error::Incompatible)?;
+
+    profile.mods.push(Mod {
+        name: repo.name.trim().into(),
+        identifier: ModIdentifier::GitHubRepository((
+            repo.owner.expect("Could not get repository owner").login,
+            repo.name.clone(),
+        )),
+        check_game_version: if should_check_game_version == Some(true) {
+            None
+        } else {
+            should_check_game_version
+        },
+        check_mod_loader: if should_check_mod_loader == Some(true) {
+            None
+        } else {
+            should_check_mod_loader
+        },
+    });
+
+    Ok(repo.name)
 }
 
-/// Check if the project of `project_id` exists, is a mod, and is compatible with the current profile
+use ferinth::structures::project::{DonationLink, ProjectType};
+/// Check if the project of `project_id` exists, is a mod, and is compatible with `profile`.
+/// If so, add its ID to `profile`.
 ///
-/// Returns the project and the latest compatible version
+/// Returns the project name and donation URLs to display to the user
 pub async fn modrinth(
     modrinth: &ferinth::Ferinth,
-    project: &ferinth::structures::project::Project,
-    profile: &Profile,
+    project_id: &str,
+    profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<ferinth::structures::version::Version> {
+) -> Result<(String, Vec<DonationLink>)> {
+    let project = modrinth.get_project(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == project.title.to_lowercase()
             || ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
     }) {
         Err(Error::AlreadyAdded)
-    } else if project.project_type != ferinth::structures::project::ProjectType::Mod {
+    } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
-        let version = mod_downloadable::get_latest_compatible_version(
+        mod_downloadable::get_latest_compatible_version(
             &modrinth.list_versions(&project.id).await?,
             if should_check_game_version == Some(false) {
                 None
@@ -156,22 +177,39 @@ pub async fn modrinth(
                 Some(&profile.mod_loader)
             },
         )
-        .ok_or(Error::Incompatible)?
-        .1;
-        Ok(version)
+        .ok_or(Error::Incompatible)?;
+
+        profile.mods.push(Mod {
+            name: project.title.trim().into(),
+            identifier: ModIdentifier::ModrinthProject(project.id.clone()),
+            check_game_version: if should_check_game_version == Some(true) {
+                None
+            } else {
+                should_check_game_version
+            },
+            check_mod_loader: if should_check_mod_loader == Some(true) {
+                None
+            } else {
+                should_check_mod_loader
+            },
+        });
+
+        Ok((project.title, project.donation_urls))
     }
 }
 
-/// Check if the mod of `project_id` exists, is a mod, and is compatible with the current profile
+/// Check if the mod of `project_id` exists, is a mod, and is compatible with `profile`.
+/// If so, add its ID to `profile`.
 ///
-/// Returns the mod and the latest compatible file
+/// Returns the mod name to display to the user
 pub async fn curseforge(
     curseforge: &furse::Furse,
-    project: &furse::structures::mod_structs::Mod,
-    profile: &Profile,
+    project_id: i32,
+    profile: &mut Profile,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
-) -> Result<furse::structures::file_structs::File> {
+) -> Result<String> {
+    let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == project.name.to_lowercase()
@@ -180,8 +218,10 @@ pub async fn curseforge(
         Err(Error::AlreadyAdded)
     } else if Some(false) == project.allow_mod_distribution {
         Err(Error::DistributionDenied)
-    } else if project.links.website_url.as_str().contains("mc-mods") {
-        let file = mod_downloadable::get_latest_compatible_file(
+    } else if !project.links.website_url.as_str().contains("mc-mods") {
+        Err(Error::NotAMod)
+    } else {
+        mod_downloadable::get_latest_compatible_file(
             curseforge.get_mod_files(project.id).await?,
             if should_check_game_version == Some(false) {
                 None
@@ -194,10 +234,22 @@ pub async fn curseforge(
                 Some(&profile.mod_loader)
             },
         )
-        .ok_or(Error::Incompatible)?
-        .0;
-        Ok(file)
-    } else {
-        Err(Error::NotAMod)
+        .ok_or(Error::Incompatible)?;
+
+        profile.mods.push(Mod {
+            name: project.name.trim().into(),
+            identifier: ModIdentifier::CurseForgeProject(project.id),
+            check_game_version: if should_check_game_version == Some(true) {
+                None
+            } else {
+                should_check_game_version
+            },
+            check_mod_loader: if should_check_mod_loader == Some(true) {
+                None
+            } else {
+                should_check_mod_loader
+            },
+        });
+        Ok(project.name)
     }
 }
