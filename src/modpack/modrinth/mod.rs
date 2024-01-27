@@ -1,8 +1,9 @@
 pub mod structs;
 
 use async_zip::{
-    error::Result, read::seek::ZipFileReader, write::ZipFileWriter, Compression, StoredZipEntry,
-    ZipEntryBuilder,
+    error::Result,
+    tokio::{read::seek::ZipFileReader, write::ZipFileWriter},
+    Compression, ZipEntryBuilder,
 };
 use std::{
     fs::read_dir,
@@ -12,23 +13,27 @@ use tokio::{
     fs::{canonicalize, read, File},
     io::{AsyncRead, AsyncReadExt, AsyncSeek},
 };
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 /// Read the `input`'s metadata file to a string
 pub async fn read_metadata_file(
     input: impl AsyncRead + AsyncSeek + Unpin,
 ) -> Result<Option<String>> {
     let mut buffer = String::new();
-    let zip_file = ZipFileReader::new(input).await?;
+    let zip_file = ZipFileReader::new(input.compat()).await?;
     if let Some(i) = zip_file
         .file()
         .entries()
         .iter()
-        .map(StoredZipEntry::entry)
-        .position(|entry| entry.filename() == "modrinth.index.json")
+        .map(|entry| entry.filename().as_str())
+        .collect::<Result<Vec<&str>>>()?
+        .iter()
+        .position(|&fname| fname == "modrinth.index.json")
     {
         zip_file
             .into_entry(i)
             .await?
+            .compat()
             .read_to_string(&mut buffer)
             .await?;
         Ok(Some(buffer))
@@ -45,7 +50,7 @@ pub async fn create(
     additional_mods: Option<&Path>,
 ) -> Result<File> {
     let compression = Compression::Deflate;
-    let mut writer = ZipFileWriter::new(File::create(output).await?);
+    let mut writer = ZipFileWriter::new(File::create(output).await?.compat());
     writer
         .write_entry_whole(
             ZipEntryBuilder::new("modrinth.index.json".into(), compression),
@@ -73,7 +78,8 @@ pub async fn create(
                                 .join("mods")
                                 .join(entry.file_name().unwrap())
                                 .to_string_lossy()
-                                .into_owned(),
+                                .as_ref()
+                                .into(),
                             compression,
                         ),
                         &read(entry).await?,
@@ -82,5 +88,5 @@ pub async fn create(
             }
         }
     }
-    writer.close().await
+    writer.close().await.map(Compat::into_inner)
 }
