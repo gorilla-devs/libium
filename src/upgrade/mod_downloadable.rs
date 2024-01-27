@@ -11,8 +11,9 @@ use octocrab::{
 };
 
 #[derive(Debug, thiserror::Error)]
-#[error("{}: {}", self, .0)]
+#[error("{:?}: {}", self, .0)]
 pub enum Error {
+    #[error("distribution denied")]
     DistributionDenied(#[from] DistributionDeniedError),
     ModrinthError(#[from] ferinth::Error),
     CurseForgeError(#[from] furse::Error),

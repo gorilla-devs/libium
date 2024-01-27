@@ -15,18 +15,18 @@ pub fn file_path() -> PathBuf {
         .join("config.json")
 }
 
-/// Get the config file at `config_file_path`.
-/// If it doesn't exist, a config file with an empty config will be created.
-pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
-    if !config_file_path.exists() {
+/// Open the config file at `path`.
+/// If it doesn't exist, a config file with an empty config will be created and opened.
+pub async fn get_file(path: PathBuf) -> Result<File> {
+    if !path.exists() {
         // Create the config file directory
-        create_dir_all(config_file_path.parent().unwrap()).await?;
+        create_dir_all(path.parent().unwrap()).await?;
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .truncate(false)
             .create(true)
-            .open(config_file_path)
+            .open(path)
             .await?;
         write_file(
             &mut file,
@@ -45,7 +45,7 @@ pub async fn get_file(config_file_path: PathBuf) -> Result<File> {
             .write(true)
             .truncate(false)
             .create(false)
-            .open(config_file_path)
+            .open(path)
             .await
     }
 }

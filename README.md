@@ -1,11 +1,10 @@
 # Libium
-Libium is the backend of Ferium. It helps manage Minecraft mods from Modrinth, CurseForge, and Github Releases
+Libium is the backend of [ferium](https://github.com/gorilla-devs/ferium). It helps manage Minecraft mods from Modrinth, CurseForge, and Github Releases.
 
-There are 3 main components in Libium;
+These are the main components of libium;
 
-- `config` deals with (surprise, surprise) the config. It defines the config struct and some methods to get the config file, deserialise it, etc
-- `misc` contains a few convenience functions
-- `file_picker` contains functions to show a file picker
+- `config` deals with (surprise, surprise) the config. It defines the config structure and methods to get the config file, deserialise it, etc
+- `modpack` contains manifest/metadata structs for MR and CF modpack formats, and functions for reading these from a zip file
+- `upgrade` contains functions for fetching the latest compatible mod/modpack file, and downloading it
 - `add` contains functions to verify and add a mod to a profile
-- `modpack` contains manifest/metadata structs and functions for Modrinth and CurseForge structs
-- `upgrade` contains functions for the advanced upgrade functionality in Ferium
+- `file_picker` contains functions to show a file picker for both GUI and CLI styles

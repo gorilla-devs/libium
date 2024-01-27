@@ -1,4 +1,4 @@
-use ferinth::structures::{project::ProjectSupportRange, version::Hashes, Number};
+use ferinth::structures::{project::ProjectSupportRange, version::Hashes, Int};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use url::Url;
@@ -8,7 +8,7 @@ use url::Url;
 pub struct Metadata {
     /// The version of the format, stored as a number.
     /// The current value at the time of writing is `1`.
-    pub format_version: Number,
+    pub format_version: Int,
     pub game: Game,
     pub version_id: String,
     /// Human readable name of the modpack
@@ -43,7 +43,7 @@ pub struct ModpackFile {
     /// HTTPS URLs where this file may be downloaded
     pub downloads: Vec<Url>,
     /// The size of the file in bytes
-    pub file_size: Number,
+    pub file_size: Int,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
