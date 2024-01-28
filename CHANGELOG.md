@@ -2,6 +2,10 @@
 
 ## `1.24.0`
 
+- In `add.rs`, add mods to the profile and return only the mod name
+- Add option to override compatibility checks when adding
+- Update `async_zip` to the latest version `0.0.16`
+
 ## `1.23.0`
 ### 23.03.2023
 

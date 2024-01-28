@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.23.2"
+version = "1.24.0"
 edition = "2021"
 authors = [
     "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
@@ -25,10 +25,7 @@ gui = ["rfd"]
 rfd = { version = "0.13", default-features = false, optional = true, features = [
     "xdg-portal",
 ] }
-octocrab = { version = "0.33", default-features = false, features = [
-    "rustls",
-    "rustls-webpki-tokio",
-] }
+octocrab = { version = "0.33", default-features = false, features = ["rustls"] }
 tokio = { version = "1.35", default-features = false, features = ["fs"] }
 # Locked due to possibility of breaking changes
 async_zip = { version = "=0.0.16", default-features = false, features = [
