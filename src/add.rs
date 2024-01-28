@@ -73,6 +73,7 @@ impl From<octocrab::Error> for Error {
 pub async fn github(
     repo_handler: &octocrab::repos::RepoHandler<'_>,
     profile: &mut Profile,
+    perform_checks: bool,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<String> {
@@ -90,36 +91,38 @@ pub async fn github(
         return Err(Error::AlreadyAdded);
     }
 
-    let releases = repo_handler.releases().list().send().await?.items;
-    let mut contains_jar_asset = false;
+    if perform_checks {
+        let releases = repo_handler.releases().list().send().await?.items;
+        let mut contains_jar_asset = false;
 
-    // Check if the releases contain a JAR file
-    'outer: for release in &releases {
-        for asset in &release.assets {
-            if asset.name.contains("jar") {
-                contains_jar_asset = true;
-                break 'outer;
+        // Check if the releases contain a JAR file
+        'outer: for release in &releases {
+            for asset in &release.assets {
+                if asset.name.contains("jar") {
+                    contains_jar_asset = true;
+                    break 'outer;
+                }
             }
         }
-    }
 
-    if !contains_jar_asset {
-        return Err(Error::NotAMod);
+        if !contains_jar_asset {
+            return Err(Error::NotAMod);
+        }
+        mod_downloadable::get_latest_compatible_asset(
+            &releases,
+            if should_check_game_version == Some(false) {
+                None
+            } else {
+                Some(&profile.game_version)
+            },
+            if should_check_mod_loader == Some(false) {
+                None
+            } else {
+                Some(&profile.mod_loader)
+            },
+        )
+        .ok_or(Error::Incompatible)?;
     }
-    mod_downloadable::get_latest_compatible_asset(
-        &releases,
-        if should_check_game_version == Some(false) {
-            None
-        } else {
-            Some(&profile.game_version)
-        },
-        if should_check_mod_loader == Some(false) {
-            None
-        } else {
-            Some(&profile.mod_loader)
-        },
-    )
-    .ok_or(Error::Incompatible)?;
 
     profile.mods.push(Mod {
         name: repo.name.trim().into(),
@@ -151,6 +154,7 @@ pub async fn modrinth(
     modrinth: &ferinth::Ferinth,
     project_id: &str,
     profile: &mut Profile,
+    perform_checks: bool,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<(String, Vec<DonationLink>)> {
@@ -164,20 +168,22 @@ pub async fn modrinth(
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
     } else {
-        mod_downloadable::get_latest_compatible_version(
-            &modrinth.list_versions(&project.id).await?,
-            if should_check_game_version == Some(false) {
-                None
-            } else {
-                Some(&profile.game_version)
-            },
-            if should_check_mod_loader == Some(false) {
-                None
-            } else {
-                Some(&profile.mod_loader)
-            },
-        )
-        .ok_or(Error::Incompatible)?;
+        if perform_checks {
+            mod_downloadable::get_latest_compatible_version(
+                &modrinth.list_versions(&project.id).await?,
+                if should_check_game_version == Some(false) {
+                    None
+                } else {
+                    Some(&profile.game_version)
+                },
+                if should_check_mod_loader == Some(false) {
+                    None
+                } else {
+                    Some(&profile.mod_loader)
+                },
+            )
+            .ok_or(Error::Incompatible)?;
+        }
 
         profile.mods.push(Mod {
             name: project.title.trim().into(),
@@ -206,6 +212,7 @@ pub async fn curseforge(
     curseforge: &furse::Furse,
     project_id: i32,
     profile: &mut Profile,
+    perform_checks: bool,
     should_check_game_version: Option<bool>,
     should_check_mod_loader: Option<bool>,
 ) -> Result<String> {
@@ -221,20 +228,22 @@ pub async fn curseforge(
     } else if !project.links.website_url.as_str().contains("mc-mods") {
         Err(Error::NotAMod)
     } else {
-        mod_downloadable::get_latest_compatible_file(
-            curseforge.get_mod_files(project.id).await?,
-            if should_check_game_version == Some(false) {
-                None
-            } else {
-                Some(&profile.game_version)
-            },
-            if should_check_mod_loader == Some(false) {
-                None
-            } else {
-                Some(&profile.mod_loader)
-            },
-        )
-        .ok_or(Error::Incompatible)?;
+        if perform_checks {
+            mod_downloadable::get_latest_compatible_file(
+                curseforge.get_mod_files(project.id).await?,
+                if should_check_game_version == Some(false) {
+                    None
+                } else {
+                    Some(&profile.game_version)
+                },
+                if should_check_mod_loader == Some(false) {
+                    None
+                } else {
+                    Some(&profile.mod_loader)
+                },
+            )
+            .ok_or(Error::Incompatible)?;
+        }
 
         profile.mods.push(Mod {
             name: project.name.trim().into(),
