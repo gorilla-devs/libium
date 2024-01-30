@@ -1,6 +1,12 @@
 # Changelog for Libium
 
+## `1.24.1`
+### 30.01.2024
+
+Fix compilation on linux
+
 ## `1.24.0`
+### 28.01.2024
 
 - In `add.rs`, add mods to the profile and return only the mod name
 - Add option to override compatibility checks when adding
