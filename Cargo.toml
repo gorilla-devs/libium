@@ -24,6 +24,7 @@ gui = ["rfd"]
 [dependencies]
 rfd = { version = "0.13", default-features = false, optional = true, features = [
     "xdg-portal",
+    "tokio",
 ] }
 octocrab = { version = "0.33", default-features = false, features = ["rustls"] }
 tokio = { version = "1.35", default-features = false, features = ["fs"] }
