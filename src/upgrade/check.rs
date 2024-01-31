@@ -44,32 +44,48 @@ pub fn modrinth<'a>(
         .map(|v| (v.get_version_file(), v))
 }
 
+fn is_jar_file(asset_name: &str) -> bool {
+    asset_name.contains("jar")
+}
+
+fn is_not_source(asset_name: &str) -> bool {
+    !asset_name.contains("source")
+}
+
+fn game_version_check(game_version: Option<&str>, asset_name: &str) -> bool {
+    game_version
+        .map(|game_version| asset_name.contains(game_version))
+        // select latest asset if version check is disabled
+        .unwrap_or(true)
+}
+
+fn mod_loader_check(mod_loader: Option<&ModLoader>, asset_name: &str) -> bool {
+    mod_loader
+        .map(|mod_loader| {
+            asset_name
+                .split('-')
+                .any(|loader| loader == mod_loader.to_string().as_str())
+        })
+        // select latest asset if mod loader check is disabled
+        .unwrap_or(true)
+}
+
 /// Get the latest compatible asset from `releases`
 pub fn github<'a>(
     releases: &'a [Release],
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<&ModLoader>,
 ) -> Option<&'a Asset> {
-    for release in releases {
-        for asset in &release.assets {
-            if asset.name.ends_with(".jar")
-                // Sources JARs should not be used with the regular game
-                && !asset.name.contains("sources")
-                // Immediately select the newest file if check is disabled, i.e. *_to_check is None
-                && (game_version_to_check.is_none()
-                    || asset.name.contains(game_version_to_check.unwrap()))
-                && (mod_loader_to_check.is_none()
-                    || asset.name
-                        .strip_suffix(".jar")
-                        .unwrap()
-                        .split('-')
-                        .any(|mod_loader|
-                            Ok(mod_loader_to_check.unwrap()) == mod_loader.parse().as_ref()
-                        ))
-            {
-                return Some(asset);
-            }
-        }
-    }
-    None
+    releases
+        .iter()
+        .flat_map(|release| {
+            release
+                .assets
+                .iter()
+                .filter(|asset| is_jar_file(&asset.name))
+                .filter(|asset| is_not_source(&asset.name))
+                .filter(|asset| game_version_check(game_version_to_check, &asset.name))
+                .filter(|asset| mod_loader_check(mod_loader_to_check, &asset.name))
+        })
+        .next()
 }

@@ -68,6 +68,17 @@ pub enum ModLoader {
     NeoForge,
 }
 
+impl ToString for ModLoader {
+    fn to_string(&self) -> String {
+        match self {
+            ModLoader::Quilt => "quilt",
+            ModLoader::Fabric => "fabric",
+            ModLoader::Forge => "forge",
+        }
+        .to_string()
+    }
+}
+
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 #[error("The given string is not a mod loader")]
 pub struct ModLoaderParseError {}
