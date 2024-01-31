@@ -1,6 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
@@ -67,12 +67,15 @@ pub enum ModLoader {
     Forge,
     NeoForge,
 }
+
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 #[error("The given string is not a mod loader")]
 pub struct ModLoaderParseError {}
-impl TryFrom<&str> for ModLoader {
-    type Error = ModLoaderParseError;
-    fn try_from(from: &str) -> Result<Self, Self::Error> {
+
+impl FromStr for ModLoader {
+    type Err = ModLoaderParseError;
+
+    fn from_str(from: &str) -> Result<Self, Self::Err> {
         match from.to_lowercase().as_str() {
             "quilt" => Ok(Self::Quilt),
             "fabric" => Ok(Self::Fabric),

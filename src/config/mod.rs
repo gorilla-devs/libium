@@ -1,11 +1,12 @@
 pub mod structs;
 
-use std::path::PathBuf;
-use structs::Config;
+use std::path::{Path, PathBuf};
 use tokio::{
     fs::{create_dir_all, File, OpenOptions},
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, Result},
 };
+
+use self::structs::Config;
 
 /// Get the default config file path
 pub fn file_path() -> PathBuf {
@@ -15,38 +16,42 @@ pub fn file_path() -> PathBuf {
         .join("config.json")
 }
 
+#[inline]
+pub fn default_config() -> Config {
+    Config {
+        active_profile: 0,
+        active_modpack: 0,
+        profiles: Vec::new(),
+        modpacks: Vec::new(),
+    }
+}
+
+#[inline]
+pub async fn open_config_file(path: &Path) -> Result<File> {
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .create(true)
+        .open(path)
+        .await
+}
+
+pub async fn generate_config_file(path: &Path) -> Result<File> {
+    // Create the config file directory
+    create_dir_all(path.parent().unwrap()).await?;
+    let mut file = open_config_file(path).await?;
+    write_file(&mut file, &default_config()).await?;
+    Ok(file)
+}
+
 /// Open the config file at `path`.
 /// If it doesn't exist, a config file with an empty config will be created and opened.
 pub async fn get_file(path: PathBuf) -> Result<File> {
     if !path.exists() {
-        // Create the config file directory
-        create_dir_all(path.parent().unwrap()).await?;
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .truncate(false)
-            .create(true)
-            .open(path)
-            .await?;
-        write_file(
-            &mut file,
-            &Config {
-                active_profile: 0,
-                active_modpack: 0,
-                profiles: Vec::new(),
-                modpacks: Vec::new(),
-            },
-        )
-        .await?;
-        Ok(file)
+        generate_config_file(&path).await
     } else {
-        OpenOptions::new()
-            .read(true)
-            .write(true)
-            .truncate(false)
-            .create(false)
-            .open(path)
-            .await
+        open_config_file(&path).await
     }
 }
 

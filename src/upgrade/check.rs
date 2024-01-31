@@ -19,8 +19,7 @@ pub fn curseforge<'a>(
             game_version_to_check.is_none() || version == game_version_to_check.unwrap()
         }) && file.game_versions.iter().any(|mod_loader| {
             mod_loader_to_check.is_none()
-                || Ok(mod_loader_to_check.unwrap())
-                    == ModLoader::try_from(mod_loader.as_ref()).as_ref()
+                || Ok(mod_loader_to_check.unwrap()) == mod_loader.parse().as_ref()
         })
     })
 }
@@ -39,8 +38,7 @@ pub fn modrinth<'a>(
                 game_version_to_check.is_none() || version == game_version_to_check.unwrap()
             }) && version.loaders.iter().any(|mod_loader| {
                 mod_loader_to_check.is_none()
-                    || Ok(mod_loader_to_check.unwrap())
-                        == ModLoader::try_from(mod_loader.as_ref()).as_ref()
+                    || Ok(mod_loader_to_check.unwrap()) == mod_loader.parse().as_ref()
             })
         })
         .map(|v| (v.get_version_file(), v))
@@ -66,7 +64,7 @@ pub fn github<'a>(
                         .unwrap()
                         .split('-')
                         .any(|mod_loader|
-                            mod_loader_to_check == ModLoader::try_from(mod_loader).as_ref().ok()
+                            Ok(mod_loader_to_check.unwrap()) == mod_loader.parse().as_ref()
                         ))
             {
                 return Some(asset);
