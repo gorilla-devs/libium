@@ -48,10 +48,10 @@ pub async fn generate_config_file(path: &Path) -> Result<File> {
 /// Open the config file at `path`.
 /// If it doesn't exist, a config file with an empty config will be created and opened.
 pub async fn get_file(path: PathBuf) -> Result<File> {
-    if !path.exists() {
-        generate_config_file(&path).await
-    } else {
+    if path.exists() {
         open_config_file(&path).await
+    } else {
+        generate_config_file(&path).await
     }
 }
 
