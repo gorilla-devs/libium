@@ -13,7 +13,7 @@ use octocrab::{
 #[derive(Debug, thiserror::Error)]
 #[error("{:?}: {}", self, .0)]
 pub enum Error {
-    #[error("distribution denied")]
+    #[error("{}", .0)]
     DistributionDenied(#[from] DistributionDeniedError),
     ModrinthError(#[from] ferinth::Error),
     CurseForgeError(#[from] furse::Error),

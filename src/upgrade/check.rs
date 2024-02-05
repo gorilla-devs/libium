@@ -54,18 +54,19 @@ pub fn github<'a>(
 ) -> Option<&'a Asset> {
     for release in releases {
         for asset in &release.assets {
-            if asset.name.contains("jar")
+            if asset.name.ends_with(".jar")
                 // Sources JARs should not be used with the regular game
                 && !asset.name.contains("sources")
                 // Immediately select the newest file if check is disabled, i.e. *_to_check is None
                 && (game_version_to_check.is_none()
                     || asset.name.contains(game_version_to_check.unwrap()))
                 && (mod_loader_to_check.is_none()
-                    || asset
-                        .name
+                    || asset.name
+                        .strip_suffix(".jar")
+                        .unwrap()
                         .split('-')
                         .any(|mod_loader|
-                            Ok(mod_loader_to_check.unwrap()) == ModLoader::try_from(mod_loader).as_ref()
+                            mod_loader_to_check == ModLoader::try_from(mod_loader).as_ref().ok()
                         ))
             {
                 return Some(asset);

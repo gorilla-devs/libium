@@ -1,5 +1,11 @@
 # Changelog for Libium
 
+## `1.24.2`
+### 05.02.2024
+
+- Fix [#343](https://github.com/gorilla-devs/ferium/issues/343); When checking github assets, check that the name _ends with_ `.jar`, and strip it before splitting the string
+- Tweak the distribution denied error message
+
 ## `1.24.1`
 ### 30.01.2024
 
