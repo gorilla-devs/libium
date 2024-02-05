@@ -35,10 +35,8 @@ pub struct Downloadable {
 
 fn output_from_path(filename: &str) -> PathBuf {
     PathBuf::from(
-        filename
-            .ends_with(".zip")
-            .then_some("resourcepacks")
-            .unwrap_or("mods"),
+        if filename
+            .ends_with(".zip") { "resourcepacks" } else { "mods" },
     )
     .join(filename)
 }
