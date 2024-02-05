@@ -20,6 +20,7 @@ pub enum Error {
     #[error("{}", .0)]
     IOError(#[from] std::io::Error),
 }
+
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
@@ -32,9 +33,20 @@ pub struct Downloadable {
     pub length: usize,
 }
 
+fn output_from_path(filename: &str) -> PathBuf {
+    PathBuf::from(
+        filename
+            .ends_with(".zip")
+            .then_some("resourcepacks")
+            .unwrap_or("mods"),
+    )
+    .join(filename)
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("The developer of this mod has denied third party applications from downloading it")]
 pub struct DistributionDeniedError(pub i32, pub i32);
+
 impl TryFrom<File> for Downloadable {
     type Error = DistributionDeniedError;
     fn try_from(file: File) -> std::result::Result<Self, Self::Error> {
@@ -42,26 +54,17 @@ impl TryFrom<File> for Downloadable {
             download_url: file
                 .download_url
                 .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
-            output: PathBuf::from(if file.file_name.ends_with(".zip") {
-                "resourcepacks"
-            } else {
-                "mods"
-            })
-            .join(file.file_name),
+            output: output_from_path(&file.file_name),
             length: file.file_length,
         })
     }
 }
+
 impl From<VersionFile> for Downloadable {
     fn from(file: VersionFile) -> Self {
         Self {
             download_url: file.url,
-            output: PathBuf::from(if file.filename.ends_with(".zip") {
-                "resourcepacks"
-            } else {
-                "mods"
-            })
-            .join(file.filename),
+            output: output_from_path(&file.filename),
             length: file.size,
         }
     }
@@ -69,7 +72,11 @@ impl From<VersionFile> for Downloadable {
 impl From<ModpackFile> for Downloadable {
     fn from(file: ModpackFile) -> Self {
         Self {
-            download_url: file.downloads[0].clone(),
+            download_url: file
+                .downloads
+                .first()
+                .expect("Downlaod url doesn't exist")
+                .clone(),
             output: file.path,
             length: file.file_size,
         }
@@ -101,9 +108,9 @@ impl Downloadable {
         UF: FnMut(usize) + Send,
     {
         let (filename, url, size) = (self.filename(), self.download_url, self.length);
-        let mut response = client.get(url).send().await?;
         let out_file_path = output_dir.join(&self.output);
         let temp_file_path = out_file_path.with_extension("part");
+
         let mut temp_file = BufWriter::with_capacity(
             size,
             OpenOptions::new()
@@ -112,6 +119,9 @@ impl Downloadable {
                 .open(&temp_file_path)
                 .await?,
         );
+
+        let mut response = client.get(url).send().await?;
+
         while let Some(chunk) = response.chunk().await? {
             temp_file.write_all(&chunk).await?;
             update(chunk.len());
