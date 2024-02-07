@@ -97,3 +97,14 @@ impl FromStr for ModLoader {
         }
     }
 }
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            active_profile: 0,
+            active_modpack: 0,
+            profiles: Vec::new(),
+            modpacks: Vec::new(),
+        }
+    }
+}

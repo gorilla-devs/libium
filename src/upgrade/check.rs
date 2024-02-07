@@ -11,20 +11,34 @@ fn is_not_source(asset_name: &str) -> bool {
     !asset_name.contains("source")
 }
 
-fn game_version_check(game_version: Option<&str>, asset_name: &str) -> bool {
+fn game_version_check_contain(game_version: Option<&str>, asset_name: &str) -> bool {
     game_version
         .map(|game_version| asset_name.contains(game_version))
         // select latest asset if version check is disabled
         .unwrap_or(true)
 }
 
-fn mod_loader_check(mod_loader: Option<&ModLoader>, asset_name: &str) -> bool {
+fn game_version_check_exact(game_version: Option<&str>, version: &str) -> bool {
+    game_version
+        .map(|game_version| version == game_version)
+        // select latest asset if version check is disabled
+        .unwrap_or(true)
+}
+
+fn mod_loader_check_contain(mod_loader: Option<&ModLoader>, asset_name: &str) -> bool {
     mod_loader
         .map(|mod_loader| {
             asset_name
                 .split('-')
                 .any(|loader| loader == mod_loader.to_string().as_str())
         })
+        // select latest asset if mod loader check is disabled
+        .unwrap_or(true)
+}
+
+fn mod_loader_check_exact(mod_loader_to_check: Option<&ModLoader>, mod_loader: &str) -> bool {
+    mod_loader_to_check
+        .map(|loader| loader.to_string().as_str() == mod_loader)
         // select latest asset if mod loader check is disabled
         .unwrap_or(true)
 }
@@ -41,8 +55,8 @@ pub fn curseforge<'a>(
     // Immediately select the newest file if check is disabled, i.e. *_to_check is None
     files.iter().find(|file| {
         file.game_versions.iter().any(|asset| {
-            game_version_check(game_version_to_check, asset)
-                && mod_loader_check(mod_loader_to_check, asset)
+            game_version_check_exact(game_version_to_check, asset)
+                && mod_loader_check_exact(mod_loader_to_check, asset)
         })
     })
 }
@@ -60,11 +74,11 @@ pub fn modrinth<'a>(
             version
                 .game_versions
                 .iter()
-                .any(|version| game_version_check(game_version_to_check, version))
+                .any(|version| game_version_check_contain(game_version_to_check, version))
                 && version
                     .loaders
                     .iter()
-                    .any(|mod_loader| mod_loader_check(mod_loader_to_check, mod_loader))
+                    .any(|mod_loader| mod_loader_check_contain(mod_loader_to_check, mod_loader))
         })
         .map(|v| (v.get_version_file(), v))
 }
@@ -83,8 +97,8 @@ pub fn github<'a>(
                 .iter()
                 .filter(|asset| is_jar_file(&asset.name))
                 .filter(|asset| is_not_source(&asset.name))
-                .filter(|asset| game_version_check(game_version_to_check, &asset.name))
-                .filter(|asset| mod_loader_check(mod_loader_to_check, &asset.name))
+                .filter(|asset| game_version_check_contain(game_version_to_check, &asset.name))
+                .filter(|asset| mod_loader_check_contain(mod_loader_to_check, &asset.name))
         })
         .next()
 }
