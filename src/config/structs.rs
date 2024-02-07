@@ -65,6 +65,7 @@ pub enum ModLoader {
     Quilt,
     Fabric,
     Forge,
+    NeoForge,
 }
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 #[error("The given string is not a mod loader")]
@@ -76,6 +77,7 @@ impl TryFrom<&str> for ModLoader {
             "quilt" => Ok(Self::Quilt),
             "fabric" => Ok(Self::Fabric),
             "forge" => Ok(Self::Forge),
+            "neoforge" => Ok(Self::NeoForge),
             _ => Err(Self::Error {}),
         }
     }

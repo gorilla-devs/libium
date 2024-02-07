@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.25.0`
+### 07.02.2024
+
+Support for [NeoForge](https://neoforged.net)
+
 ## `1.24.2`
 ### 05.02.2024
 
