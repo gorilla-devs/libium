@@ -74,6 +74,7 @@ impl ToString for ModLoader {
             ModLoader::Quilt => "quilt",
             ModLoader::Fabric => "fabric",
             ModLoader::Forge => "forge",
+            ModLoader::NeoForge => "neoforge",
         }
         .to_string()
     }
@@ -92,7 +93,7 @@ impl FromStr for ModLoader {
             "fabric" => Ok(Self::Fabric),
             "forge" => Ok(Self::Forge),
             "neoforge" => Ok(Self::NeoForge),
-            _ => Err(Self::Error {}),
+            _ => Err(Self::Err {}),
         }
     }
 }
