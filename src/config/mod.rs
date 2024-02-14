@@ -17,16 +17,6 @@ pub fn file_path() -> PathBuf {
 }
 
 #[inline]
-pub fn default_config() -> Config {
-    Config {
-        active_profile: 0,
-        active_modpack: 0,
-        profiles: Vec::new(),
-        modpacks: Vec::new(),
-    }
-}
-
-#[inline]
 pub async fn open_config_file(path: &Path) -> Result<File> {
     OpenOptions::new()
         .read(true)
@@ -41,7 +31,7 @@ pub async fn generate_config_file(path: &Path) -> Result<File> {
     // Create the config file directory
     create_dir_all(path.parent().unwrap()).await?;
     let mut file = open_config_file(path).await?;
-    write_file(&mut file, &default_config()).await?;
+    write_file(&mut file, &Config::default()).await?;
     Ok(file)
 }
 
