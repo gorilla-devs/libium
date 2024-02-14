@@ -2,7 +2,7 @@ use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, str::FromStr};
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Config {
     /// The index of the active profile
     pub active_profile: usize,
@@ -94,17 +94,6 @@ impl FromStr for ModLoader {
             "forge" => Ok(Self::Forge),
             "neoforge" => Ok(Self::NeoForge),
             _ => Err(Self::Err {}),
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            active_profile: 0,
-            active_modpack: 0,
-            profiles: Vec::new(),
-            modpacks: Vec::new(),
         }
     }
 }

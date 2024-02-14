@@ -1,5 +1,6 @@
 pub mod structs;
 
+use once_cell::sync::Lazy;
 use std::path::{Path, PathBuf};
 use tokio::{
     fs::{create_dir_all, File, OpenOptions},
@@ -8,12 +9,18 @@ use tokio::{
 
 use self::structs::Config;
 
-/// Get the default config file path
-pub fn file_path() -> PathBuf {
+/// Default config location
+pub static DEFAULT_CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| {
     crate::HOME
         .join(".config")
         .join("ferium")
         .join("config.json")
+});
+
+/// Get the default config file path
+/// TODO: This fn call can be removed, cosnt value can be used directly
+pub fn file_path() -> PathBuf {
+    DEFAULT_CONFIG_PATH.clone()
 }
 
 #[inline]
@@ -27,7 +34,7 @@ pub async fn open_config_file(path: &Path) -> Result<File> {
         .await
 }
 
-pub async fn generate_config_file(path: &Path) -> Result<File> {
+pub async fn generate_default_config_file(path: &Path) -> Result<File> {
     // Create the config file directory
     create_dir_all(path.parent().unwrap()).await?;
     let mut file = open_config_file(path).await?;
@@ -41,7 +48,7 @@ pub async fn get_file(path: PathBuf) -> Result<File> {
     if path.exists() {
         open_config_file(&path).await
     } else {
-        generate_config_file(&path).await
+        generate_default_config_file(&path).await
     }
 }
 
@@ -51,6 +58,11 @@ pub async fn read_file(config_file: &mut File) -> Result<String> {
     let mut buffer = String::new();
     config_file.read_to_string(&mut buffer).await?;
     Ok(buffer)
+}
+
+/// Alternative for [read_file]
+pub async fn read_from_file_path(file_path: &Path) -> Result<String> {
+    tokio::fs::read_to_string(file_path).await
 }
 
 /// Deserialise the given `input` into a config struct
