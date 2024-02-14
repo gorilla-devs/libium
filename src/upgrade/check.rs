@@ -4,7 +4,7 @@ use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
 
 fn is_jar_file(asset_name: &str) -> bool {
-    asset_name.contains("jar")
+    asset_name.ends_with(".jar")
 }
 
 fn is_not_source(asset_name: &str) -> bool {
