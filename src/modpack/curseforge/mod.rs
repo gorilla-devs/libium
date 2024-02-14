@@ -10,17 +10,16 @@ pub async fn read_manifest_file(
 ) -> Result<Option<String>> {
     let mut buffer = String::new();
     let zip_file = ZipFileReader::new(input.compat()).await?;
-    if let Some(i) = zip_file
+    if let Some(file_entry_index) = zip_file
         .file()
         .entries()
         .iter()
         .map(|entry| entry.filename().as_str())
-        .collect::<Result<Vec<&str>>>()?
-        .iter()
-        .position(|&fname| fname == "manifest.json")
+        .flatten()
+        .position(|fname| fname == "manifest.json")
     {
         zip_file
-            .into_entry(i)
+            .into_entry(file_entry_index)
             .await?
             .compat()
             .read_to_string(&mut buffer)
