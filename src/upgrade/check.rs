@@ -28,9 +28,9 @@ fn game_version_check_exact(game_version: Option<&str>, version: &str) -> bool {
 fn mod_loader_check_contain(mod_loader: Option<&ModLoader>, asset_name: &str) -> bool {
     mod_loader
         .map(|mod_loader| {
-            asset_name
-                .split('-')
-                .any(|loader| loader == mod_loader.to_string().as_str())
+            asset_name.split('-').any(|loader| {
+                loader.to_lowercase().trim() == mod_loader.to_string().to_lowercase().trim()
+            })
         })
         // select latest asset if mod loader check is disabled
         .unwrap_or(true)
@@ -38,7 +38,7 @@ fn mod_loader_check_contain(mod_loader: Option<&ModLoader>, asset_name: &str) ->
 
 fn mod_loader_check_exact(mod_loader_to_check: Option<&ModLoader>, mod_loader: &str) -> bool {
     mod_loader_to_check
-        .map(|loader| loader.to_string().as_str() == mod_loader)
+        .map(|loader| loader.to_string().to_lowercase().trim() == mod_loader.to_lowercase().trim())
         // select latest asset if mod loader check is disabled
         .unwrap_or(true)
 }
@@ -54,10 +54,13 @@ pub fn curseforge<'a>(
 
     // Immediately select the newest file if check is disabled, i.e. *_to_check is None
     files.iter().find(|file| {
-        file.game_versions.iter().any(|asset| {
-            game_version_check_exact(game_version_to_check, asset)
-                && mod_loader_check_exact(mod_loader_to_check, asset)
-        })
+        file.game_versions
+            .iter()
+            .any(|asset| game_version_check_exact(game_version_to_check, asset))
+            && file
+                .game_versions
+                .iter()
+                .any(|asset| mod_loader_check_exact(mod_loader_to_check, asset))
     })
 }
 
