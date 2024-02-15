@@ -28,9 +28,9 @@ fn game_version_check_exact(game_version: Option<&str>, version: &str) -> bool {
 fn mod_loader_check_contain(mod_loader: Option<&ModLoader>, asset_name: &str) -> bool {
     mod_loader
         .map(|mod_loader| {
-            asset_name.split('-').any(|loader| {
-                loader.to_lowercase().trim() == mod_loader.to_string().to_lowercase().trim()
-            })
+            asset_name
+                .split('-')
+                .any(|loader| loader.parse().as_ref() == Ok(mod_loader))
         })
         // select latest asset if mod loader check is disabled
         .unwrap_or(true)
@@ -38,7 +38,7 @@ fn mod_loader_check_contain(mod_loader: Option<&ModLoader>, asset_name: &str) ->
 
 fn mod_loader_check_exact(mod_loader_to_check: Option<&ModLoader>, mod_loader: &str) -> bool {
     mod_loader_to_check
-        .map(|loader| loader.to_string().to_lowercase().trim() == mod_loader.to_lowercase().trim())
+        .map(|loader| mod_loader.parse().as_ref() == Ok(loader))
         // select latest asset if mod loader check is disabled
         .unwrap_or(true)
 }
