@@ -1,15 +1,12 @@
 pub mod structs;
 
-use async_zip::{
-    base::write::EntryStreamWriter, error::Result, tokio::write::ZipFileWriter, Compression,
-    ZipEntryBuilder,
-};
+use async_zip::{error::Result, tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
 use std::{
     fs::read_dir,
     path::{Path, PathBuf},
 };
 use tokio::{
-    fs::{canonicalize, read, DirEntry, File},
+    fs::{canonicalize, read, File},
     io::{AsyncRead, AsyncSeek},
 };
 use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
