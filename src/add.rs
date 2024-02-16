@@ -218,6 +218,7 @@ pub async fn curseforge(
 ) -> Result<String> {
     let project = curseforge.get_mod(project_id).await?;
     // Check if project has already been added
+
     if profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == project.name.to_lowercase()
             || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
@@ -259,6 +260,7 @@ pub async fn curseforge(
                 should_check_mod_loader
             },
         });
+
         Ok(project.name)
     }
 }

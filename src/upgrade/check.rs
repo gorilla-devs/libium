@@ -3,25 +3,64 @@ use ferinth::structures::version::{Version, VersionFile};
 use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
 
+fn is_jar_file(asset_name: &str) -> bool {
+    asset_name.ends_with(".jar")
+}
+
+fn is_not_source(asset_name: &str) -> bool {
+    !asset_name.contains("source")
+}
+
+fn game_version_check_contain(game_version: Option<&str>, asset_name: &str) -> bool {
+    game_version
+        .map(|game_version| asset_name.contains(game_version))
+        // select latest asset if version check is disabled
+        .unwrap_or(true)
+}
+
+fn game_version_check_exact(game_version: Option<&str>, version: &str) -> bool {
+    game_version
+        .map(|game_version| version == game_version)
+        // select latest asset if version check is disabled
+        .unwrap_or(true)
+}
+
+fn mod_loader_check_contain(mod_loader: Option<&ModLoader>, asset_name: &str) -> bool {
+    mod_loader
+        .map(|mod_loader| {
+            asset_name
+                .split('-')
+                .any(|loader| loader.parse().as_ref() == Ok(mod_loader))
+        })
+        // select latest asset if mod loader check is disabled
+        .unwrap_or(true)
+}
+
+fn mod_loader_check_exact(mod_loader_to_check: Option<&ModLoader>, mod_loader: &str) -> bool {
+    mod_loader_to_check
+        .map(|loader| mod_loader.parse().as_ref() == Ok(loader))
+        // select latest asset if mod loader check is disabled
+        .unwrap_or(true)
+}
+
 /// Get the latest compatible file from `files`
 pub fn curseforge<'a>(
     files: &'a mut [File],
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<&ModLoader>,
 ) -> Option<&'a File> {
-    // Make the newest files come first
-    files.sort_unstable_by_key(|file| file.file_date);
-    files.reverse();
+    // Sort files in non increasing order
+    files.sort_unstable_by(|file1, file2| file2.file_date.cmp(&file1.file_date));
 
     // Immediately select the newest file if check is disabled, i.e. *_to_check is None
     files.iter().find(|file| {
-        file.game_versions.iter().any(|version| {
-            game_version_to_check.is_none() || version == game_version_to_check.unwrap()
-        }) && file.game_versions.iter().any(|mod_loader| {
-            mod_loader_to_check.is_none()
-                || Ok(mod_loader_to_check.unwrap())
-                    == ModLoader::try_from(mod_loader.as_ref()).as_ref()
-        })
+        file.game_versions
+            .iter()
+            .any(|asset| game_version_check_exact(game_version_to_check, asset))
+            && file
+                .game_versions
+                .iter()
+                .any(|asset| mod_loader_check_exact(mod_loader_to_check, asset))
     })
 }
 
@@ -35,13 +74,14 @@ pub fn modrinth<'a>(
         .iter()
         .find(|version| {
             // Immediately select the newest file if check is disabled, i.e. *_to_check is None
-            version.game_versions.iter().any(|version| {
-                game_version_to_check.is_none() || version == game_version_to_check.unwrap()
-            }) && version.loaders.iter().any(|mod_loader| {
-                mod_loader_to_check.is_none()
-                    || Ok(mod_loader_to_check.unwrap())
-                        == ModLoader::try_from(mod_loader.as_ref()).as_ref()
-            })
+            version
+                .game_versions
+                .iter()
+                .any(|version| game_version_check_contain(game_version_to_check, version))
+                && version
+                    .loaders
+                    .iter()
+                    .any(|mod_loader| mod_loader_check_contain(mod_loader_to_check, mod_loader))
         })
         .map(|v| (v.get_version_file(), v))
 }
@@ -52,26 +92,16 @@ pub fn github<'a>(
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<&ModLoader>,
 ) -> Option<&'a Asset> {
-    for release in releases {
-        for asset in &release.assets {
-            if asset.name.ends_with(".jar")
-                // Sources JARs should not be used with the regular game
-                && !asset.name.contains("sources")
-                // Immediately select the newest file if check is disabled, i.e. *_to_check is None
-                && (game_version_to_check.is_none()
-                    || asset.name.contains(game_version_to_check.unwrap()))
-                && (mod_loader_to_check.is_none()
-                    || asset.name
-                        .strip_suffix(".jar")
-                        .unwrap()
-                        .split('-')
-                        .any(|mod_loader|
-                            mod_loader_to_check == ModLoader::try_from(mod_loader).as_ref().ok()
-                        ))
-            {
-                return Some(asset);
-            }
-        }
-    }
-    None
+    releases
+        .iter()
+        .flat_map(|release| {
+            release
+                .assets
+                .iter()
+                .filter(|asset| is_jar_file(&asset.name))
+                .filter(|asset| is_not_source(&asset.name))
+                .filter(|asset| game_version_check_contain(game_version_to_check, &asset.name))
+                .filter(|asset| mod_loader_check_contain(mod_loader_to_check, &asset.name))
+        })
+        .next()
 }

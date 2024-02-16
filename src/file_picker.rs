@@ -29,26 +29,27 @@ fn show_file_picker(default: &Path, prompt: &str) -> Option<PathBuf> {
 ///
 /// For terminal output, display a `prompt`, and reply with the selected `name`
 pub fn pick_folder(default: &Path, prompt: &str, name: &str) -> Result<Option<PathBuf>> {
-    let input = show_file_picker(default, prompt);
-    Ok(match input {
-        Some(input) => {
-            let mut path = PathBuf::new();
-            let components = input.components();
-            for c in components {
-                path.push(if c.as_os_str() == "~" {
-                    HOME.as_os_str()
-                } else {
-                    c.as_os_str()
-                });
-            }
-            path = path.canonicalize()?;
+    show_file_picker(default, prompt)
+        .map(|input| {
+            let path = input
+                .components()
+                .map(|c| {
+                    if c.as_os_str() == "~" {
+                        HOME.as_os_str()
+                    } else {
+                        c.as_os_str()
+                    }
+                })
+                .collect::<PathBuf>()
+                .canonicalize()?;
+
             println!(
                 "✔ \x1b[01m{}\x1b[0m · \x1b[32m{}\x1b[0m",
                 name,
                 path.display()
             );
-            Some(path)
-        }
-        None => None,
-    })
+
+            Ok(path)
+        })
+        .transpose()
 }

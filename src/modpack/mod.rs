@@ -11,7 +11,7 @@ use async_zip::{
 use std::{fs::read_dir, path::Path};
 use tokio::{
     fs::{canonicalize, create_dir_all, metadata, read, File},
-    io::{copy, AsyncRead, AsyncSeek, AsyncWrite},
+    io::{copy, AsyncRead, AsyncReadExt, AsyncSeek, AsyncWrite},
 };
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
@@ -81,4 +81,29 @@ pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send>(
         }
     }
     Ok(())
+}
+
+pub async fn read_from_zip(
+    input: impl AsyncRead + AsyncSeek + Unpin,
+    file_name: &str,
+) -> Result<Option<String>> {
+    let mut buffer = String::new();
+    let zip_file = ZipFileReader::new(input.compat()).await?;
+    if let Some(i) = zip_file
+        .file()
+        .entries()
+        .iter()
+        .flat_map(|entry| entry.filename().as_str())
+        .position(|fname| fname == file_name)
+    {
+        zip_file
+            .into_entry(i)
+            .await?
+            .compat()
+            .read_to_string(&mut buffer)
+            .await?;
+        Ok(Some(buffer))
+    } else {
+        Ok(None)
+    }
 }
