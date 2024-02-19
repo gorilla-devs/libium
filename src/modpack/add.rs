@@ -8,6 +8,7 @@ use reqwest::StatusCode;
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
+#[error("{}", .0)]
 pub enum Error {
     #[error("Modpack is already added to profile")]
     AlreadyAdded,
@@ -15,9 +16,7 @@ pub enum Error {
     DoesNotExist,
     #[error("The project is not a modpack")]
     NotAModpack,
-    #[error("{}", .0)]
     ModrinthError(ferinth::Error),
-    #[error("{}", .0)]
     CurseForgeError(furse::Error),
 }
 
@@ -54,14 +53,16 @@ impl From<ferinth::Error> for Error {
 /// Returns the project struct
 pub async fn curseforge(curseforge: &Furse, config: &Config, project_id: i32) -> Result<Mod> {
     let project = curseforge.get_mod(project_id).await?;
+
     // Check if project has already been added
     if config.modpacks.iter().any(|modpack| {
         modpack.name == project.name
             || ModpackIdentifier::CurseForgeModpack(project.id) == modpack.identifier
     }) {
         Err(Error::AlreadyAdded)
+
     // Check if the project is a modpack
-    } else if !project.links.website_url.as_str().contains("modpack") {
+    } else if !project.links.website_url.as_str().contains("modpacks") {
         Err(Error::NotAModpack)
     } else {
         Ok(project)
@@ -73,12 +74,15 @@ pub async fn curseforge(curseforge: &Furse, config: &Config, project_id: i32) ->
 /// Returns the project struct
 pub async fn modrinth(modrinth: &Ferinth, config: &Config, project_id: &str) -> Result<Project> {
     let project = modrinth.get_project(project_id).await?;
+
     // Check if project has already been added
     if config.modpacks.iter().any(|modpack| {
         modpack.name == project.title
             || ModpackIdentifier::ModrinthModpack(project.id.clone()) == modpack.identifier
     }) {
         Err(Error::AlreadyAdded)
+
+    // Check if the project is modpack
     } else if project.project_type != ProjectType::Modpack {
         Err(Error::NotAModpack)
     } else {

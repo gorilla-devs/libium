@@ -27,6 +27,7 @@ pub struct Metadata {
 pub enum DependencyID {
     Minecraft,
     Forge,
+    Neoforge,
     FabricLoader,
     QuiltLoader,
 }

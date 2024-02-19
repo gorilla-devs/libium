@@ -5,20 +5,8 @@ use std::{
     fs::read_dir,
     path::{Path, PathBuf},
 };
-use tokio::{
-    fs::{canonicalize, read, File},
-    io::{AsyncRead, AsyncSeek},
-};
+use tokio::fs::{canonicalize, read, File};
 use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
-
-use super::read_from_zip;
-
-/// Read the `input`'s metadata file to a string
-pub async fn read_metadata_file(
-    input: impl AsyncRead + AsyncSeek + Unpin,
-) -> Result<Option<String>> {
-    read_from_zip(input, "modrinth.index.json").await
-}
 
 /// Create a Modrinth modpack at `output` using the provided `metadata` and optional `overrides`
 pub async fn create(
@@ -29,12 +17,16 @@ pub async fn create(
 ) -> Result<File> {
     let compression = Compression::Deflate;
     let mut writer = ZipFileWriter::new(File::create(output).await?.compat());
+
+    // Add metadata to the zip file
     writer
         .write_entry_whole(
             ZipEntryBuilder::new("modrinth.index.json".into(), compression),
             metadata.as_bytes(),
         )
         .await?;
+
+    // Add the overrides to the zip file
     if let Some(overrides) = overrides {
         super::compress_dir(
             &mut writer,
@@ -45,6 +37,7 @@ pub async fn create(
         .await?;
     }
 
+    // Add additional (non-Modrinth) mods to the zip file
     if let Some(path) = additional_mods {
         for entry in read_dir(path)?
             .flatten()
@@ -67,5 +60,6 @@ pub async fn create(
                 .await?;
         }
     }
+
     writer.close().await.map(Compat::into_inner)
 }

@@ -11,9 +11,8 @@ use octocrab::{
 };
 
 #[derive(Debug, thiserror::Error)]
-#[error("{:?}: {}", self, .0)]
+#[error("{}", .0)]
 pub enum Error {
-    #[error("{}", .0)]
     DistributionDenied(#[from] DistributionDeniedError),
     ModrinthError(#[from] ferinth::Error),
     CurseForgeError(#[from] furse::Error),
@@ -23,19 +22,20 @@ pub enum Error {
 }
 type Result<T> = std::result::Result<T, Error>;
 
-/// Get the latest compatible version and version file of the provided `project_id`.
-/// Also returns whether Fabric backwards compatibility was used
-pub fn get_latest_compatible_version(
-    versions: &[Version],
+/// Get the latest compatible version and version file from the `versions`
+///
+/// Also returns whether Fabric backwards compatibility for Quilt was used.
+pub fn get_latest_compatible_version<'a>(
+    versions: &'a [Version],
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<&ModLoader>,
-) -> Option<(VersionFile, Version, bool)> {
+) -> Option<(&'a VersionFile, &'a Version, bool)> {
     match check::modrinth(versions, game_version_to_check, mod_loader_to_check) {
-        Some(some) => Some((some.0.clone(), some.1.clone(), false)),
+        Some(some) => Some((some.0, some.1, false)),
         None => {
             if mod_loader_to_check == Some(&ModLoader::Quilt) {
                 check::modrinth(versions, game_version_to_check, Some(&ModLoader::Fabric))
-                    .map(|some| (some.0.clone(), some.1.clone(), true))
+                    .map(|some| (some.0, some.1, true))
             } else {
                 None
             }
@@ -43,8 +43,9 @@ pub fn get_latest_compatible_version(
     }
 }
 
-/// Get the latest compatible file of the provided `project_id`.
-/// Also returns whether Fabric backwards compatibility was used
+/// Get the latest compatible file from the `files`
+///
+/// Also returns whether Fabric backwards compatibility for Quilt was used.
 pub fn get_latest_compatible_file(
     mut files: Vec<File>,
     game_version_to_check: Option<&str>,
@@ -121,7 +122,7 @@ pub async fn get_latest_compatible_downloadable(
         )
         .map_or_else(
             || Err(Error::NoCompatibleFile),
-            |ok| Ok((ok.0.into(), ok.2)),
+            |ok| Ok((ok.0.clone().into(), ok.2)),
         ),
         ModIdentifier::GitHubRepository(full_name) => get_latest_compatible_asset(
             &github

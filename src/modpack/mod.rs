@@ -2,16 +2,17 @@ pub mod add;
 pub mod curseforge;
 pub mod modrinth;
 
+use crate::read_wrapper;
 use async_recursion::async_recursion;
 use async_zip::{
     error::Result,
     tokio::{read::seek::ZipFileReader, write::ZipFileWriter},
     Compression, ZipEntryBuilder,
 };
-use std::{fs::read_dir, path::Path};
+use std::{fs::read_dir, os::unix::fs::MetadataExt, path::Path};
 use tokio::{
     fs::{canonicalize, create_dir_all, metadata, read, File},
-    io::{copy, AsyncRead, AsyncReadExt, AsyncSeek, AsyncWrite},
+    io::{copy, AsyncRead, AsyncSeek, AsyncWrite},
 };
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
@@ -48,61 +49,59 @@ pub async fn extract_zip(
 /// Uses recursion to resolve directories.
 /// Resolves symlinks as well.
 #[async_recursion]
-pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send>(
+pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send, P: AsRef<Path> + Send>(
     writer: &mut ZipFileWriter<W>,
     source: &Path,
-    dir: &Path,
+    dir: P,
     compression: Compression,
 ) -> Result<()> {
-    for entry in read_dir(source.join(dir))? {
+    for entry in read_dir(source.join(dir.as_ref()))? {
         let entry = canonicalize(entry?.path()).await?;
         let meta = metadata(&entry).await?;
         if meta.is_dir() {
             compress_dir(
                 writer,
                 source,
-                &dir.join(entry.file_name().unwrap()),
+                &dir.as_ref().join(entry.file_name().unwrap()),
                 compression,
             )
             .await?;
         } else if meta.is_file() {
+            let mut entry_builder = ZipEntryBuilder::new(
+                dir.as_ref()
+                    .join(entry.file_name().unwrap())
+                    .to_string_lossy()
+                    .as_ref()
+                    .into(),
+                compression,
+            );
+            #[cfg(unix)]
+            {
+                entry_builder = entry_builder.unix_permissions(meta.mode().try_into().unwrap());
+            }
             writer
-                .write_entry_whole(
-                    ZipEntryBuilder::new(
-                        dir.join(entry.file_name().unwrap())
-                            .to_string_lossy()
-                            .as_ref()
-                            .into(),
-                        compression,
-                    ),
-                    &read(entry).await?,
-                )
+                .write_entry_whole(entry_builder, &read(entry).await?)
                 .await?;
         }
     }
     Ok(())
 }
 
-pub async fn read_from_zip(
+/// Returns the contents of the `file_name` from the provided `input` zip file if it exists
+pub async fn read_file_from_zip(
     input: impl AsyncRead + AsyncSeek + Unpin,
     file_name: &str,
 ) -> Result<Option<String>> {
-    let mut buffer = String::new();
     let zip_file = ZipFileReader::new(input.compat()).await?;
     if let Some(i) = zip_file
         .file()
         .entries()
         .iter()
-        .flat_map(|entry| entry.filename().as_str())
-        .position(|fname| fname == file_name)
+        .position(|entry| entry.filename().as_str().is_ok_and(|f| f == file_name))
     {
-        zip_file
-            .into_entry(i)
-            .await?
-            .compat()
-            .read_to_string(&mut buffer)
-            .await?;
-        Ok(Some(buffer))
+        Ok(Some(
+            read_wrapper(zip_file.into_entry(i).await?.compat()).await?,
+        ))
     } else {
         Ok(None)
     }

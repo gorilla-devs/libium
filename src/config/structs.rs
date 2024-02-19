@@ -1,4 +1,3 @@
-use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, str::FromStr};
 
@@ -18,7 +17,6 @@ pub struct Modpack {
     /// The Minecraft instance directory to install to
     pub output_dir: PathBuf,
     pub install_overrides: bool,
-    /// The project ID of the modpack
     pub identifier: ModpackIdentifier,
 }
 
@@ -60,7 +58,24 @@ pub enum ModIdentifier {
     GitHubRepository((String, String)),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, ValueEnum)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub enum ModIdentifierRef<'a> {
+    CurseForgeProject(i32),
+    ModrinthProject(&'a str),
+    GitHubRepository((&'a str, &'a str)),
+}
+
+impl ModIdentifier {
+    pub fn as_ref(&self) -> ModIdentifierRef {
+        match self {
+            ModIdentifier::CurseForgeProject(id) => ModIdentifierRef::CurseForgeProject(*id),
+            ModIdentifier::ModrinthProject(_) => todo!(),
+            ModIdentifier::GitHubRepository(_) => todo!(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, clap::ValueEnum)]
 pub enum ModLoader {
     Quilt,
     Fabric,
@@ -70,7 +85,7 @@ pub enum ModLoader {
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 #[error("The given string is not a mod loader")]
-pub struct ModLoaderParseError {}
+pub struct ModLoaderParseError;
 
 impl FromStr for ModLoader {
     type Err = ModLoaderParseError;

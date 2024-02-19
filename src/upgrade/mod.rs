@@ -74,7 +74,7 @@ impl From<ModpackFile> for Downloadable {
             download_url: file
                 .downloads
                 .first()
-                .expect("Downlaod url doesn't exist")
+                .expect("Download URLs not provided")
                 .clone(),
             output: file.path,
             length: file.file_size,

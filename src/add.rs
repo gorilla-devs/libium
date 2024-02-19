@@ -93,21 +93,15 @@ pub async fn github(
 
     if perform_checks {
         let releases = repo_handler.releases().list().send().await?.items;
-        let mut contains_jar_asset = false;
 
-        // Check if the releases contain a JAR file
-        'outer: for release in &releases {
-            for asset in &release.assets {
-                if asset.name.contains("jar") {
-                    contains_jar_asset = true;
-                    break 'outer;
-                }
-            }
-        }
-
-        if !contains_jar_asset {
+        if !releases
+            .iter()
+            .flat_map(|r| &r.assets)
+            .any(|a| a.name.ends_with(".jar"))
+        {
             return Err(Error::NotAMod);
         }
+
         mod_downloadable::get_latest_compatible_asset(
             &releases,
             if should_check_game_version == Some(false) {
