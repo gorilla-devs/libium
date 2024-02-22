@@ -4,11 +4,26 @@ use std::{path::PathBuf, str::FromStr};
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Config {
     /// The index of the active profile
+    #[serde(skip_serializing_if = "is_zero")]
+    #[serde(default)]
     pub active_profile: usize,
-    /// The index of the active modpack
-    pub active_modpack: usize,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub profiles: Vec<Profile>,
+
+    /// The index of the active modpack
+    #[serde(skip_serializing_if = "is_zero")]
+    #[serde(default)]
+    pub active_modpack: usize,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub modpacks: Vec<Modpack>,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -38,17 +53,47 @@ pub struct Profile {
     pub mods: Vec<Mod>,
 }
 
+impl Profile {
+    pub fn get_version(&self, check_game_version: bool) -> Option<&str> {
+        if check_game_version {
+            Some(&self.game_version)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_loader(&self, check_mod_loader: bool) -> Option<ModLoader> {
+        if check_mod_loader {
+            Some(self.mod_loader)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Mod {
     pub name: String,
     /// The project ID of the mod
     pub identifier: ModIdentifier,
+
     /// Whether to check for game version compatibility
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub check_game_version: Option<bool>,
+    #[serde(skip_serializing_if = "is_true")]
+    #[serde(default = "get_true")]
+    pub check_game_version: bool,
+
     /// Whether to check for mod loader compatibility
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub check_mod_loader: Option<bool>,
+    #[serde(skip_serializing_if = "is_true")]
+    #[serde(default = "get_true")]
+    pub check_mod_loader: bool,
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
+}
+
+fn get_true() -> bool {
+    true
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -58,24 +103,24 @@ pub enum ModIdentifier {
     GitHubRepository((String, String)),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModIdentifierRef<'a> {
-    CurseForgeProject(i32),
+    CurseForgeProject(&'a i32),
     ModrinthProject(&'a str),
-    GitHubRepository((&'a str, &'a str)),
+    GitHubRepository(&'a (String, String)),
 }
 
 impl ModIdentifier {
     pub fn as_ref(&self) -> ModIdentifierRef {
         match self {
-            ModIdentifier::CurseForgeProject(id) => ModIdentifierRef::CurseForgeProject(*id),
-            ModIdentifier::ModrinthProject(_) => todo!(),
-            ModIdentifier::GitHubRepository(_) => todo!(),
+            ModIdentifier::CurseForgeProject(v) => ModIdentifierRef::CurseForgeProject(v),
+            ModIdentifier::ModrinthProject(v) => ModIdentifierRef::ModrinthProject(v),
+            ModIdentifier::GitHubRepository(v) => ModIdentifierRef::GitHubRepository(v),
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum ModLoader {
     Quilt,
     Fabric,
@@ -91,7 +136,7 @@ impl FromStr for ModLoader {
     type Err = ModLoaderParseError;
 
     fn from_str(from: &str) -> Result<Self, Self::Err> {
-        match from.to_lowercase().as_str() {
+        match from.trim().to_lowercase().as_str() {
             "quilt" => Ok(Self::Quilt),
             "fabric" => Ok(Self::Fabric),
             "forge" => Ok(Self::Forge),

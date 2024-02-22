@@ -14,32 +14,23 @@ use tokio::{
 };
 
 #[derive(Debug, thiserror::Error)]
+#[error("{}", .0)]
 pub enum Error {
-    #[error("{}", .0)]
     ReqwestError(#[from] reqwest::Error),
-    #[error("{}", .0)]
     IOError(#[from] std::io::Error),
 }
-
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
 pub struct Downloadable {
     /// A URL to download the file from
     pub download_url: Url,
-    /// Where to output the file relative to the output directory (Minecraft instance directory)
+    /// The path of the file relative to the output directory
+    ///
+    /// Is just the filename by default, can be configured with subdirectories for modpacks.
     pub output: PathBuf,
     /// The length of the file in bytes
     pub length: usize,
-}
-
-fn output_from_path(filename: &str) -> PathBuf {
-    PathBuf::from(if filename.ends_with(".zip") {
-        "resourcepacks"
-    } else {
-        "mods"
-    })
-    .join(filename)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -53,7 +44,7 @@ impl TryFrom<File> for Downloadable {
             download_url: file
                 .download_url
                 .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
-            output: output_from_path(&file.file_name),
+            output: file.file_name.into(),
             length: file.file_length,
         })
     }
@@ -63,7 +54,7 @@ impl From<VersionFile> for Downloadable {
     fn from(file: VersionFile) -> Self {
         Self {
             download_url: file.url,
-            output: output_from_path(&file.filename),
+            output: file.filename.into(),
             length: file.size,
         }
     }
@@ -126,7 +117,7 @@ impl Downloadable {
             update(chunk.len());
         }
         temp_file.shutdown().await?;
-        rename(&temp_file_path, out_file_path).await?;
+        rename(temp_file_path, out_file_path).await?;
         Ok((size, filename))
     }
 

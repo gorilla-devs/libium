@@ -5,7 +5,10 @@ use ferinth::structures::version::{Version, VersionFile};
 use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
 
-fn game_version_check<S: AsRef<str>>(game_version_to_check: Option<&str>, versions: &[S]) -> bool {
+pub(crate) fn game_version_check<S: AsRef<str>>(
+    game_version_to_check: Option<&str>,
+    versions: &[S],
+) -> bool {
     game_version_to_check
         .map(|version| versions.iter().any(|v| v.as_ref() == version))
         // assume test passed if mod loader check is disabled
@@ -22,13 +25,12 @@ fn game_version_check_contain<S: AsRef<str>>(
         .unwrap_or(true)
 }
 
-fn mod_loader_check<S: AsRef<str>>(mod_loader_to_check: Option<&ModLoader>, loaders: &[S]) -> bool {
+pub(crate) fn mod_loader_check<S: AsRef<str>>(
+    mod_loader_to_check: Option<ModLoader>,
+    loaders: &[S],
+) -> bool {
     mod_loader_to_check
-        .map(|loader| {
-            loaders
-                .iter()
-                .any(|l| l.as_ref().parse().as_ref() == Ok(loader))
-        })
+        .map(|loader| loaders.iter().any(|l| l.as_ref().parse() == Ok(loader)))
         // assume test passed if mod loader check is disabled
         .unwrap_or(true)
 }
@@ -37,7 +39,7 @@ fn mod_loader_check<S: AsRef<str>>(mod_loader_to_check: Option<&ModLoader>, load
 pub fn curseforge<'a>(
     files: &'a mut [File],
     game_version_to_check: Option<&str>,
-    mod_loader_to_check: Option<&ModLoader>,
+    mod_loader_to_check: Option<ModLoader>,
 ) -> Option<&'a File> {
     // Sort files to make the latest files come first
     files.sort_unstable_by_key(|file1| Reverse(file1.file_date));
@@ -53,7 +55,7 @@ pub fn curseforge<'a>(
 pub fn modrinth<'a>(
     versions: &'a [Version],
     game_version_to_check: Option<&str>,
-    mod_loader_to_check: Option<&ModLoader>,
+    mod_loader_to_check: Option<ModLoader>,
 ) -> Option<(&'a VersionFile, &'a Version)> {
     versions
         .iter()
@@ -76,7 +78,7 @@ fn is_not_source(asset_name: &str) -> bool {
 pub fn github<'a>(
     releases: &'a [Release],
     game_version_to_check: Option<&str>,
-    mod_loader_to_check: Option<&ModLoader>,
+    mod_loader_to_check: Option<ModLoader>,
 ) -> Option<&'a Asset> {
     releases
         .iter()

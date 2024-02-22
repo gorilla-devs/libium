@@ -13,7 +13,7 @@ pub static HOME: Lazy<PathBuf> =
     Lazy::new(|| home::home_dir().expect("Could not get user's home directory"));
 
 /// Get the default Minecraft instance directory based on the current compilation `target_os`.
-/// If the `target_os` doesn't match `"macos"`, `"linux"`, `"windows"`, or `"android"`, this function will not compile.
+/// If the `target_os` doesn't match `"macos"`, `"linux"`, or `"windows"`, this function will not compile.
 pub fn get_minecraft_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
     return HOME.join("AppData").join("Roaming").join(".minecraft");
@@ -26,15 +26,6 @@ pub fn get_minecraft_dir() -> PathBuf {
 
     #[cfg(target_os = "linux")]
     return HOME.join(".minecraft");
-
-    #[cfg(target_os = "android")]
-    return PathBuf::from("/")
-        .join("storage")
-        .join("emulated")
-        .join("0")
-        .join("games")
-        .join("PojavLauncher")
-        .join(".minecraft");
 }
 
 /// Read `source` and return the data as a string
