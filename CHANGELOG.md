@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.26.1`
+### 22.02.2024
+
+Fix a bug where the directory to which a file was being downloaded would not be created.
+
 ## `1.26.0`
 ### 22.02.2024
 

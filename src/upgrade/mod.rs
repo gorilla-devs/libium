@@ -9,7 +9,7 @@ use octocrab::models::repos::Asset;
 use reqwest::{Client, Url};
 use std::path::{Path, PathBuf};
 use tokio::{
-    fs::{rename, OpenOptions},
+    fs::{create_dir_all, rename, OpenOptions},
     io::{AsyncWriteExt, BufWriter},
 };
 
@@ -100,6 +100,9 @@ impl Downloadable {
         let (filename, url, size) = (self.filename(), self.download_url, self.length);
         let out_file_path = output_dir.join(&self.output);
         let temp_file_path = out_file_path.with_extension("part");
+        if let Some(up_dir) = out_file_path.parent() {
+            create_dir_all(up_dir).await?;
+        }
 
         let mut temp_file = BufWriter::with_capacity(
             size,
