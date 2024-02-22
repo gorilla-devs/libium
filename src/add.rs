@@ -151,12 +151,11 @@ pub async fn modrinth(
         Err(Error::NotAMod)
 
     // Check if the project is compatible
-    } else if perform_checks
-        && game_version_check(
+    } else if !perform_checks // Short circuit if the checks should not be performed
+        || (game_version_check(
             profile.get_version(check_game_version),
             &project.game_versions,
-        )
-        && mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders)
+        ) && mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders))
     {
         // Add it to the profile
         profile.mods.push(Mod {
@@ -214,7 +213,7 @@ pub async fn curseforge(
 
         // Add it to the profile
         profile.mods.push(Mod {
-            name: project.name.trim().into(),
+            name: project.name.trim().to_string(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
             check_game_version,
             check_mod_loader,

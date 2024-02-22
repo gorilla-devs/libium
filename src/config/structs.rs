@@ -54,6 +54,7 @@ pub struct Profile {
 }
 
 impl Profile {
+    // Return the profile's `game_version` in `Some` if `check_game_version` is true
     pub fn get_version(&self, check_game_version: bool) -> Option<&str> {
         if check_game_version {
             Some(&self.game_version)
@@ -62,6 +63,7 @@ impl Profile {
         }
     }
 
+    // Return the profile's `mod_loader` in a `Some` only if `check_mod_loader` is true
     pub fn get_loader(&self, check_mod_loader: bool) -> Option<ModLoader> {
         if check_mod_loader {
             Some(self.mod_loader)

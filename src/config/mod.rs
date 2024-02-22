@@ -14,7 +14,7 @@ pub static DEFAULT_CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| {
         .join("config.json")
 });
 
-pub async fn open_config_file(path: &Path) -> Result<File> {
+async fn open_config_file(path: &Path) -> Result<File> {
     OpenOptions::new()
         .read(true)
         .write(true)

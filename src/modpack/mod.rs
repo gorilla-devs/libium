@@ -9,7 +9,7 @@ use async_zip::{
     tokio::{read::seek::ZipFileReader, write::ZipFileWriter},
     Compression, ZipEntryBuilder,
 };
-use std::{fs::read_dir, os::unix::fs::MetadataExt, path::Path};
+use std::{fs::read_dir, path::Path};
 use tokio::{
     fs::{canonicalize, create_dir_all, metadata, read, File},
     io::{copy, AsyncRead, AsyncSeek, AsyncWrite},
@@ -77,7 +77,11 @@ pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send, P: AsRef<Pat
             );
             #[cfg(unix)]
             {
-                entry_builder = entry_builder.unix_permissions(meta.mode().try_into().unwrap());
+                entry_builder = entry_builder.unix_permissions(
+                    std::os::unix::fs::MetadataExt::mode(&meta)
+                        .try_into()
+                        .unwrap(),
+                );
             }
             writer
                 .write_entry_whole(entry_builder, &read(entry).await?)

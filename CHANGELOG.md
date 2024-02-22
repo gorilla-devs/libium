@@ -1,5 +1,35 @@
 # Changelog for Libium
 
+## `1.26.0`
+### 22.02.2024
+
+- Replace `Option<bool>` with `bool` for whether or not to check game version or mod loader
+- Added `ModIdentifierRef` and `ModIdentifier.as_ref()` for comparing mod identifiers without cloning
+- Replaced many procedural loops with functional alternatives
+- Added `Profile.get_version(check_game_version)` and `Profile.get_loader(check_mod_loader)` to replace this common pattern:
+    ```rs
+    if check_(game_version | mod_loader) {
+        Some(&profile.(game_version | mod_loader))
+    } else {
+        None
+    }
+    ```
+- Use the `game_versions` and `loaders` specified in the Modrinth `Project` struct instead of using version resolution
+- Only use `.to_string()` instead of `.into<String>()` when converting a value to a `String`
+- Replace `config::file_path()` with `DEFAULT_CONFIG_PATH` which uses `Lazy`
+- Extract the file opening to `open_config_file()`
+- Move `config::read_file()` to `read_wrapper()` since it is not specific to the `config` module
+- Derive and use `Default` for the `config::Config` when creating an empty config
+- Skip serialising the active index and profiles/modpacks vectors if they're zero or empty
+- Remove the `Option` in `check_game_version` and `check_mod_loader` fields for `Mod`
+- Replace `TryFrom<&str>` with `FromStr` for `ModLoader`
+- Derive `Copy` for `ModLoader`
+- Determine `get_minecraft_dir()` at compile-time
+- Set the UNIX permissions when compressing a directory
+- Replace `curseforge::read_manifest_file()` and `modrinth::read_metadata_file()` with `read_file_from_zip()`
+- Refactor `upgrade::check` to make it more readable
+- Remove the subdirectory classification done when converting to a `Downloadable`, modpack installers can do this manually
+
 ## `1.25.0`
 ### 07.02.2024
 

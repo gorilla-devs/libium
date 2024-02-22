@@ -1,9 +1,8 @@
-use std::cmp::Reverse;
-
 use crate::{config::structs::ModLoader, version_ext::VersionExt};
 use ferinth::structures::version::{Version, VersionFile};
 use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
+use std::cmp::Reverse;
 
 pub(crate) fn game_version_check<S: AsRef<str>>(
     game_version_to_check: Option<&str>,
@@ -41,7 +40,7 @@ pub fn curseforge<'a>(
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<ModLoader>,
 ) -> Option<&'a File> {
-    // Sort files to make the latest files come first
+    // Sort files to make the latest ones come first
     files.sort_unstable_by_key(|file1| Reverse(file1.file_date));
 
     // Immediately select the newest file if check is disabled, i.e. *_to_check is None

@@ -12,7 +12,7 @@ pub enum Error {
         "The developer of this modpack has denied third party applications from downloading it"
     )]
     /// The user can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
-    /// However, they will have to manually update the modpack file if it is updated.
+    /// However, they will have to manually update the modpack file.
     DistributionDenied(#[from] DistributionDeniedError),
     ModrinthError(#[from] ferinth::Error),
     CurseForgeError(#[from] furse::Error),

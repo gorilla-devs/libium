@@ -64,19 +64,20 @@ pub(crate) fn get_latest_compatible_file(
     }
 }
 
-/// Get the latest compatible asset of the provided `repo_handler`.
-/// Also returns whether Fabric backwards compatibility was used
-pub(crate) fn get_latest_compatible_asset(
-    releases: &[Release],
+/// Get the latest compatible asset of the provided `repo_handler`
+///
+/// Also returns whether Fabric backwards compatibility for Quilt was used.
+pub(crate) fn get_latest_compatible_asset<'a>(
+    releases: &'a [Release],
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<ModLoader>,
-) -> Option<(Asset, bool)> {
+) -> Option<(&'a Asset, bool)> {
     match check::github(releases, game_version_to_check, mod_loader_to_check) {
-        Some(some) => Some((some.clone(), false)),
+        Some(some) => Some((some, false)),
         None => {
             if mod_loader_to_check == Some(ModLoader::Quilt) {
                 check::github(releases, game_version_to_check, Some(ModLoader::Fabric))
-                    .map(|some| (some.clone(), true))
+                    .map(|some| (some, true))
             } else {
                 None
             }
@@ -84,8 +85,9 @@ pub(crate) fn get_latest_compatible_asset(
     }
 }
 
-/// Get the latest compatible downloadable from the `mod_` provided.
-/// Also returns whether fabric backwards compatibility was used
+/// Get the latest compatible downloadable from the `mod_` provided
+///
+/// Also returns whether Fabric backwards compatibility for Quilt was used.
 pub async fn get_latest_compatible_downloadable(
     modrinth: &Ferinth,
     curseforge: &Furse,
@@ -137,7 +139,7 @@ pub async fn get_latest_compatible_downloadable(
         )
         .map_or_else(
             || Err(Error::NoCompatibleFile),
-            |ok| Ok((ok.0.into(), ok.1)),
+            |ok| Ok((ok.0.clone().into(), ok.1)),
         ),
     }
 }

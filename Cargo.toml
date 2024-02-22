@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.25.0"
+version = "1.26.0"
 edition = "2021"
 authors = [
     "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
