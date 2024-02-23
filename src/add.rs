@@ -1,5 +1,5 @@
 use crate::{
-    config::structs::{Mod, ModIdentifier, ModIdentifierRef, Profile},
+    config::structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
     upgrade::{
         check::{game_version_check, mod_loader_check},
         mod_downloadable,
@@ -155,7 +155,10 @@ pub async fn modrinth(
         || (game_version_check(
             profile.get_version(check_game_version),
             &project.game_versions,
-        ) && mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders))
+        ) && (mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders) | (
+            // Fabric backwards compatibility in Quilt
+            profile.mod_loader == ModLoader::Quilt && mod_loader_check(Some(ModLoader::Fabric), &project.loaders)
+        )))
     {
         // Add it to the profile
         profile.mods.push(Mod {

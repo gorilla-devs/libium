@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.26.2`
+### 23.02.2024
+
+Add Fabric backwards compatibility for Quilt when adding Modrinth mods.
+
 ## `1.26.1`
 ### 22.02.2024
 
