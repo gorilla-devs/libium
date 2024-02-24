@@ -24,6 +24,8 @@ pub enum Error {
     Incompatible,
     #[error("The project is not a mod")]
     NotAMod,
+    #[error("Invalid identifier")]
+    InvalidIdentifier,
     GitHubError(octocrab::Error),
     ModrinthError(ferinth::Error),
     CurseForgeError(furse::Error),
@@ -66,6 +68,89 @@ impl From<octocrab::Error> for Error {
             }
         }
         Self::GitHubError(err)
+    }
+}
+
+pub async fn add_multiple(
+    modrinth: &ferinth::Ferinth,
+    curseforge: &furse::Furse,
+    github: &octocrab::Octocrab,
+    profile: &mut Profile,
+    identifiers: Vec<String>,
+) -> (Vec<String>, Vec<(String, Error)>) {
+    let mut success_names = Vec::new();
+    let mut failures = Vec::new();
+
+    for identifier in identifiers {
+        match add_single(
+            modrinth,
+            curseforge,
+            github,
+            profile,
+            &identifier,
+            true,
+            true,
+            true,
+        )
+        .await
+        {
+            Ok(name) => success_names.push(name),
+            Err(err) => failures.push((
+                identifier,
+                if matches!(err, Error::ModrinthError(ferinth::Error::InvalidIDorSlug)) {
+                    Error::InvalidIdentifier
+                } else {
+                    err
+                },
+            )),
+        }
+    }
+    (success_names, failures)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn add_single(
+    modrinth: &ferinth::Ferinth,
+    curseforge: &furse::Furse,
+    github: &octocrab::Octocrab,
+    profile: &mut Profile,
+    identifier: &str,
+    perform_checks: bool,
+    check_game_version: bool,
+    check_mod_loader: bool,
+) -> Result<String> {
+    if let Ok(project_id) = identifier.parse() {
+        self::curseforge(
+            curseforge,
+            project_id,
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        )
+        .await
+    } else if identifier.matches('/').count() == 1 {
+        let split = identifier.split('/').collect::<Vec<_>>();
+
+        self::github(
+            &github.repos(split[0], split[1]),
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        )
+        .await
+    } else {
+        self::modrinth(
+            modrinth,
+            identifier,
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        )
+        .await
+        .map(|o| o.0)
     }
 }
 
