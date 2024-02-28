@@ -208,7 +208,40 @@ pub async fn github(
     Ok(repo.name)
 }
 
-use ferinth::structures::project::{DonationLink, ProjectType};
+use ferinth::structures::project::{DonationLink, Project, ProjectType};
+
+fn project_exist(profile: &Profile, project: &Project) -> bool {
+    profile.mods.iter().any(|mod_| {
+        mod_.name.to_lowercase() == project.title.to_lowercase()
+            || ModIdentifierRef::ModrinthProject(&project.id) == mod_.identifier.as_ref()
+    })
+}
+
+fn project_is_mod(project: &Project) -> bool {
+    project.project_type == ProjectType::Mod
+}
+
+fn check_mod_loader_fabric_backwards_compatible(
+    profile: &Profile,
+    project: &Project,
+    check_mod_loader: bool,
+) -> bool {
+    mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders)
+        || (profile.mod_loader == ModLoader::Quilt
+            && mod_loader_check(Some(ModLoader::Fabric), &project.loaders))
+}
+
+fn project_comatible(
+    profile: &Profile,
+    project: &Project,
+    check_game_version: bool,
+    check_mod_loader: bool,
+) -> bool {
+    game_version_check(
+        profile.get_version(check_game_version),
+        &project.game_versions,
+    ) && check_mod_loader_fabric_backwards_compatible(profile, project, check_mod_loader)
+}
 
 /// Check if the project of `project_id` exists, is a mod, and is compatible with `profile`.
 /// If so, add it to the `profile`.
@@ -224,39 +257,26 @@ pub async fn modrinth(
 ) -> Result<(String, Vec<DonationLink>)> {
     let project = modrinth.get_project(project_id).await?;
 
-    // Check if project has already been added
-    if profile.mods.iter().any(|mod_| {
-        mod_.name.to_lowercase() == project.title.to_lowercase()
-            || ModIdentifierRef::ModrinthProject(&project.id) == mod_.identifier.as_ref()
-    }) {
-        Err(Error::AlreadyAdded)
-
-    // Check if the project is a mod
-    } else if project.project_type != ProjectType::Mod {
-        Err(Error::NotAMod)
-
-    // Check if the project is compatible
-    } else if !perform_checks // Short circuit if the checks should not be performed
-        || (game_version_check(
-            profile.get_version(check_game_version),
-            &project.game_versions,
-        ) && (mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders) | (
-            // Fabric backwards compatibility in Quilt
-            profile.mod_loader == ModLoader::Quilt && mod_loader_check(Some(ModLoader::Fabric), &project.loaders)
-        )))
-    {
-        // Add it to the profile
-        profile.mods.push(Mod {
-            name: project.title.trim().to_string(),
-            identifier: ModIdentifier::ModrinthProject(project.id),
-            check_game_version,
-            check_mod_loader,
-        });
-
-        Ok((project.title, project.donation_urls))
-    } else {
-        Err(Error::Incompatible)
+    if project_exist(profile, &project) {
+        return Err(Error::AlreadyAdded);
     }
+
+    if !project_is_mod(&project) {
+        return Err(Error::NotAMod);
+    }
+
+    if !project_comatible(profile, &project, check_game_version, check_mod_loader) {
+        return Err(Error::Incompatible);
+    }
+
+    profile.mods.push(Mod {
+        name: project.title.trim().to_string(),
+        identifier: ModIdentifier::ModrinthProject(project.id),
+        check_game_version,
+        check_mod_loader,
+    });
+
+    Ok((project.title, project.donation_urls))
 }
 
 /// Check if the mod of `project_id` exists, is a mod, and is compatible with `profile`.
