@@ -8,7 +8,7 @@ use crate::{
 fn project_exist(profile: &Profile, repo: &Repository, repo_name: &(String, String)) -> bool {
     profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == repo.name.to_lowercase()
-            || ModIdentifierRef::GitHubRepository(&repo_name) == mod_.identifier.as_ref()
+            || ModIdentifierRef::GitHubRepository(repo_name) == mod_.identifier.as_ref()
     })
 }
 
@@ -25,7 +25,7 @@ async fn is_project_compatible(
     check_game_version: bool,
 ) -> super::Result<bool> {
     Ok(mod_downloadable::get_latest_compatible_asset(
-        &releases,
+        releases,
         profile.get_version(check_game_version),
         profile.get_loader(check_game_version),
     )
