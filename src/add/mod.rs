@@ -115,6 +115,56 @@ impl Checks {
     }
 }
 
+pub struct ModProvider<'p> {
+    modrinth: &'p ferinth::Ferinth,
+    curseforge: &'p furse::Furse,
+    github: &'p octocrab::Octocrab,
+    checks: &'p Checks,
+    profile: &'p mut Profile,
+}
+
+impl<'p> ModProvider<'p> {
+    pub fn new(
+        modrinth: &'p ferinth::Ferinth,
+        curseforge: &'p furse::Furse,
+        github: &'p octocrab::Octocrab,
+        checks: &'p Checks,
+        profile: &'p mut Profile,
+    ) -> Self {
+        Self {
+            modrinth,
+            curseforge,
+            github,
+            checks,
+            profile,
+        }
+    }
+
+    pub async fn add(&mut self, identifier: &str) -> Result<String> {
+        if let Ok(project_id) = identifier.parse() {
+            self.curseforge(project_id).await
+        } else if identifier.matches('/').count() == 1 {
+            self.github(identifier).await
+        } else {
+            self.modrinth(identifier).await
+        }
+    }
+
+    pub async fn curseforge(&mut self, project_id: i32) -> Result<String> {
+        curseforge::curseforge(self.curseforge, project_id, self.profile, self.checks).await
+    }
+    pub async fn github(&mut self, identifier: &str) -> Result<String> {
+        let split = identifier.split('/').collect::<Vec<_>>();
+        let repo_handler = self.github.repos(split[0], split[1]);
+        github::github(&repo_handler, self.profile, self.checks).await
+    }
+    pub async fn modrinth(&mut self, identifier: &str) -> Result<String> {
+        modrinth::modrinth(self.modrinth, identifier, self.profile, self.checks)
+            .await
+            .map(|o| o.0)
+    }
+}
+
 impl From<furse::Error> for Error {
     fn from(err: furse::Error) -> Self {
         if let furse::Error::ReqwestError(source) = &err {
@@ -154,37 +204,28 @@ impl From<octocrab::Error> for Error {
     }
 }
 
-pub async fn add_multiple(
-    modrinth: &ferinth::Ferinth,
-    curseforge: &furse::Furse,
-    github: &octocrab::Octocrab,
-    profile: &mut Profile,
+pub async fn add_multiple<'p>(
+    mod_provider: &mut ModProvider<'p>,
     identifiers: Vec<String>,
 ) -> (Vec<String>, Vec<(String, Error)>) {
     let mut success_names = Vec::new();
     let mut failures = Vec::new();
 
     for identifier in identifiers {
-        match add_single(
-            modrinth,
-            curseforge,
-            github,
-            profile,
-            &identifier,
-            &Checks::new_all_set(),
-        )
-        .await
-        {
-            Ok(name) => success_names.push(name),
-            Err(err) => failures.push((
-                identifier,
-                if matches!(err, Error::ModrinthError(ferinth::Error::InvalidIDorSlug)) {
-                    Error::InvalidIdentifier
-                } else {
-                    err
-                },
-            )),
-        }
+        mod_provider
+            .add(&identifier)
+            .await
+            .map(|name| success_names.push(name))
+            .map_err(|err| {
+                let ret_err =
+                    if matches!(err, Error::ModrinthError(ferinth::Error::InvalidIDorSlug)) {
+                        Error::InvalidIdentifier
+                    } else {
+                        err
+                    };
+                failures.push((identifier, ret_err))
+            })
+            .ok();
     }
     (success_names, failures)
 }
@@ -197,22 +238,9 @@ pub async fn add_single(
     identifier: &str,
     checks: &Checks,
 ) -> Result<String> {
-    if let Ok(project_id) = identifier.parse() {
-        curseforge::curseforge(curseforge, project_id, profile, checks).await
-    } else if identifier.matches('/').count() == 1 {
-        let split = identifier.split('/').collect::<Vec<_>>();
-        github::github(
-            &github.repos(split[0], split[1]),
-            profile,
-            checks.perform_checks(),
-            checks,
-        )
+    ModProvider::new(modrinth, curseforge, github, checks, profile)
+        .add(identifier)
         .await
-    } else {
-        modrinth::modrinth(modrinth, identifier, profile, checks)
-            .await
-            .map(|o| o.0)
-    }
 }
 
 #[cfg(test)]
@@ -247,5 +275,11 @@ mod test {
         check.set_game_version();
 
         assert!(check.game_version());
+
+        let check = Checks::from(true, false, true);
+
+        assert!(check.perform_checks());
+        assert!(!check.game_version());
+        assert!(check.mod_loader());
     }
 }
