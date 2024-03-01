@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, str::FromStr};
 
+use crate::add::Checks;
+
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Config {
     /// The index of the active profile
@@ -88,6 +90,17 @@ pub struct Mod {
     #[serde(skip_serializing_if = "is_true")]
     #[serde(default = "get_true")]
     pub check_mod_loader: bool,
+}
+
+impl Mod {
+    pub fn new(name: &str, identifier: ModIdentifier, checks: &Checks) -> Self {
+        Self {
+            name: name.into(),
+            identifier,
+            check_game_version: checks.game_version(),
+            check_mod_loader: checks.mod_loader(),
+        }
+    }
 }
 
 fn is_true(b: &bool) -> bool {

@@ -5,6 +5,8 @@ use crate::{
     upgrade::check::{game_version_check, mod_loader_check},
 };
 
+use super::Checks;
+
 fn project_exist(profile: &Profile, project: &Project) -> bool {
     profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == project.title.to_lowercase()
@@ -26,16 +28,11 @@ fn check_mod_loader_fabric_backwards_compatible(
             && mod_loader_check(Some(ModLoader::Fabric), &project.loaders))
 }
 
-fn project_comatible(
-    profile: &Profile,
-    project: &Project,
-    check_game_version: bool,
-    check_mod_loader: bool,
-) -> bool {
+fn project_comatible(profile: &Profile, project: &Project, checks: &Checks) -> bool {
     game_version_check(
-        profile.get_version(check_game_version),
+        profile.get_version(checks.game_version()),
         &project.game_versions,
-    ) && check_mod_loader_fabric_backwards_compatible(profile, project, check_mod_loader)
+    ) && check_mod_loader_fabric_backwards_compatible(profile, project, checks.mod_loader())
 }
 
 /// Check if the project of `project_id` exists, is a mod, and is compatible with `profile`.
@@ -46,9 +43,7 @@ pub async fn modrinth(
     modrinth: &ferinth::Ferinth,
     project_id: &str,
     profile: &mut Profile,
-    perform_checks: bool,
-    check_game_version: bool,
-    check_mod_loader: bool,
+    checks: &Checks,
 ) -> super::Result<(String, Vec<DonationLink>)> {
     let project = modrinth.get_project(project_id).await?;
 
@@ -60,17 +55,15 @@ pub async fn modrinth(
         return Err(super::Error::NotAMod);
     }
 
-    if perform_checks && !project_comatible(profile, &project, check_game_version, check_mod_loader)
-    {
+    if checks.perform_checks() && !project_comatible(profile, &project, checks) {
         return Err(super::Error::Incompatible);
     }
 
-    profile.mods.push(Mod {
-        name: project.title.trim().to_string(),
-        identifier: ModIdentifier::ModrinthProject(project.id),
-        check_game_version,
-        check_mod_loader,
-    });
+    profile.mods.push(Mod::new(
+        project.title.trim(),
+        ModIdentifier::ModrinthProject(project.id),
+        checks,
+    ));
 
     Ok((project.title, project.donation_urls))
 }

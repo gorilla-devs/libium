@@ -3,6 +3,8 @@ use crate::{
     upgrade::mod_downloadable,
 };
 
+use super::Checks;
+
 fn project_exist(profile: &Profile, project: &furse::structures::mod_structs::Mod) -> bool {
     profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == project.name.to_lowercase()
@@ -40,9 +42,7 @@ pub async fn curseforge(
     curseforge: &furse::Furse,
     project_id: i32,
     profile: &mut Profile,
-    perform_checks: bool,
-    check_game_version: bool,
-    check_mod_loader: bool,
+    checks: &Checks,
 ) -> super::Result<String> {
     let project = curseforge.get_mod(project_id).await?;
 
@@ -62,19 +62,18 @@ pub async fn curseforge(
     }
 
     // Check if the project is compatible
-    if perform_checks
-        && !is_project_compatible(curseforge, &project, profile, check_game_version).await?
+    if checks.perform_checks()
+        && !is_project_compatible(curseforge, &project, profile, checks.game_version()).await?
     {
         return Err(super::Error::Incompatible);
     }
 
     // Add it to the profile
-    profile.mods.push(Mod {
-        name: project.name.trim().to_string(),
-        identifier: ModIdentifier::CurseForgeProject(project.id),
-        check_game_version,
-        check_mod_loader,
-    });
+    profile.mods.push(Mod::new(
+        project.name.trim(),
+        ModIdentifier::CurseForgeProject(project.id),
+        checks,
+    ));
 
     Ok(project.name)
 }

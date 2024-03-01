@@ -5,6 +5,8 @@ use crate::{
     upgrade::mod_downloadable,
 };
 
+use super::Checks;
+
 fn project_exist(profile: &Profile, repo: &Repository, repo_name: &(String, String)) -> bool {
     profile.mods.iter().any(|mod_| {
         mod_.name.to_lowercase() == repo.name.to_lowercase()
@@ -40,8 +42,7 @@ pub async fn github(
     repo_handler: &octocrab::repos::RepoHandler<'_>,
     profile: &mut Profile,
     perform_checks: bool,
-    check_game_version: bool,
-    check_mod_loader: bool,
+    checks: &Checks,
 ) -> super::Result<String> {
     let repo = repo_handler.get().await?;
     let repo_name = (
@@ -66,18 +67,17 @@ pub async fn github(
         }
 
         // Check if the repo is compatible
-        if !is_project_compatible(profile, &releases, check_game_version).await? {
+        if !is_project_compatible(profile, &releases, checks.game_version()).await? {
             return Err(super::Error::Incompatible);
         }
     }
 
     // Add it to the profile
-    profile.mods.push(Mod {
-        name: repo.name.trim().to_string(),
-        identifier: ModIdentifier::GitHubRepository(repo_name),
-        check_game_version,
-        check_mod_loader,
-    });
+    profile.mods.push(Mod::new(
+        repo.name.trim(),
+        ModIdentifier::GitHubRepository(repo_name),
+        checks,
+    ));
 
     Ok(repo.name)
 }
