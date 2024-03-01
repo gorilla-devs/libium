@@ -41,7 +41,6 @@ async fn is_project_compatible(
 pub async fn github(
     repo_handler: &octocrab::repos::RepoHandler<'_>,
     profile: &mut Profile,
-    perform_checks: bool,
     checks: &Checks,
 ) -> super::Result<String> {
     let repo = repo_handler.get().await?;
@@ -58,7 +57,7 @@ pub async fn github(
         return Err(super::Error::AlreadyAdded);
     }
 
-    if perform_checks {
+    if checks.perform_checks() {
         let releases = repo_handler.releases().list().send().await?.items;
 
         // Check if jar files are released
