@@ -155,6 +155,7 @@ pub async fn add_multiple<'p>(
     (success_names, failures)
 }
 
+#[deprecated(note = "use ModProvide::add() instead")]
 pub async fn add_single(
     modrinth: &ferinth::Ferinth,
     curseforge: &furse::Furse,
