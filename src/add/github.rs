@@ -57,7 +57,7 @@ pub async fn github(
         return Err(super::Error::AlreadyAdded);
     }
 
-    if checks.perform_checks() {
+    if checks.contains(Checks::ENABLED) {
         let releases = repo_handler.releases().list().send().await?.items;
 
         // Check if jar files are released
@@ -66,7 +66,8 @@ pub async fn github(
         }
 
         // Check if the repo is compatible
-        if !is_project_compatible(profile, &releases, checks.game_version()).await? {
+        if !is_project_compatible(profile, &releases, checks.contains(Checks::GAME_VERSION)).await?
+        {
             return Err(super::Error::Incompatible);
         }
     }

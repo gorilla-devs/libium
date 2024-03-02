@@ -97,8 +97,8 @@ impl Mod {
         Self {
             name: name.into(),
             identifier,
-            check_game_version: checks.game_version(),
-            check_mod_loader: checks.mod_loader(),
+            check_game_version: checks.contains(Checks::GAME_VERSION),
+            check_mod_loader: checks.contains(Checks::MOD_LOADER),
         }
     }
 }

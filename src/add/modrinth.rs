@@ -30,9 +30,13 @@ fn check_mod_loader_fabric_backwards_compatible(
 
 fn project_comatible(profile: &Profile, project: &Project, checks: &Checks) -> bool {
     game_version_check(
-        profile.get_version(checks.game_version()),
+        profile.get_version(checks.contains(Checks::GAME_VERSION)),
         &project.game_versions,
-    ) && check_mod_loader_fabric_backwards_compatible(profile, project, checks.mod_loader())
+    ) && check_mod_loader_fabric_backwards_compatible(
+        profile,
+        project,
+        checks.contains(Checks::MOD_LOADER),
+    )
 }
 
 /// Check if the project of `project_id` exists, is a mod, and is compatible with `profile`.
@@ -55,7 +59,7 @@ pub async fn modrinth(
         return Err(super::Error::NotAMod);
     }
 
-    if checks.perform_checks() && !project_comatible(profile, &project, checks) {
+    if checks.contains(Checks::ENABLED) && !project_comatible(profile, &project, checks) {
         return Err(super::Error::Incompatible);
     }
 

@@ -62,8 +62,14 @@ pub async fn curseforge(
     }
 
     // Check if the project is compatible
-    if checks.perform_checks()
-        && !is_project_compatible(curseforge, &project, profile, checks.game_version()).await?
+    if checks.contains(Checks::ENABLED)
+        && !is_project_compatible(
+            curseforge,
+            &project,
+            profile,
+            checks.contains(Checks::GAME_VERSION),
+        )
+        .await?
     {
         return Err(super::Error::Incompatible);
     }
