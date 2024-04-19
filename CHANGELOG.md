@@ -1,5 +1,10 @@
 # Changelog for Libium
 
+## `1.26.3`
+### 18.04.2024
+
+Update dependencies
+
 ## `1.26.2`
 ### 23.02.2024
 

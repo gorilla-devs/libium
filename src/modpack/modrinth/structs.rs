@@ -1,4 +1,4 @@
-use ferinth::structures::{project::ProjectSupportRange, version::Hashes, Int};
+use ferinth::structures::{project::ProjectSupportRange, version::Hash, Int};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use url::Url;
@@ -37,7 +37,7 @@ pub enum DependencyID {
 pub struct ModpackFile {
     /// The destination path of this file, relative to the Minecraft instance directory
     pub path: PathBuf,
-    pub hashes: Hashes,
+    pub hashes: Hash,
     /// The specific environment this file exists on
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<ModpackFileEnvironment>,

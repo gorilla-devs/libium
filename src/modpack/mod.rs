@@ -12,13 +12,13 @@ use async_zip::{
 use std::{fs::read_dir, path::Path};
 use tokio::{
     fs::{canonicalize, create_dir_all, metadata, read, File},
-    io::{copy, AsyncRead, AsyncSeek, AsyncWrite},
+    io::{copy, AsyncBufRead, AsyncSeek, AsyncWrite},
 };
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 /// Extract the `input` zip file to `output_dir`
 pub async fn extract_zip(
-    input: impl AsyncRead + AsyncSeek + Unpin,
+    input: impl AsyncBufRead + AsyncSeek + Unpin,
     output_dir: &Path,
 ) -> Result<()> {
     let mut zip = ZipFileReader::new(input.compat()).await?;
@@ -93,7 +93,7 @@ pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send, P: AsRef<Pat
 
 /// Returns the contents of the `file_name` from the provided `input` zip file if it exists
 pub async fn read_file_from_zip(
-    input: impl AsyncRead + AsyncSeek + Unpin,
+    input: impl AsyncBufRead + AsyncSeek + Unpin,
     file_name: &str,
 ) -> Result<Option<String>> {
     let zip_file = ZipFileReader::new(input.compat()).await?;
