@@ -1,9 +1,12 @@
 # Changelog for Libium
 
-## `1.26.3`
-### 18.04.2024
+## `1.27.0`
+### 21.05.24
 
-Update dependencies
+- Update dependencies
+- Replace references with `AsRef` in as many places as possible
+- Replace functions generics with direct `impl`s as much as possible
+- Added `add_multiple` and `add_single` functions to `add` from ferium to facilitate adding of multiple mods
 
 ## `1.26.2`
 ### 23.02.2024
