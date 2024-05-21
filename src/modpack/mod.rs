@@ -49,19 +49,19 @@ pub async fn extract_zip(
 /// Uses recursion to resolve directories.
 /// Resolves symlinks as well.
 #[async_recursion]
-pub async fn compress_dir<W: AsyncWrite + AsyncSeek + Unpin + Send, P: AsRef<Path> + Send>(
-    writer: &mut ZipFileWriter<W>,
-    source: &Path,
-    dir: P,
+pub async fn compress_dir(
+    writer: &mut ZipFileWriter<impl AsyncWrite + AsyncSeek + Unpin + Send>,
+    source: impl AsRef<Path> + Send + 'async_recursion,
+    dir: impl AsRef<Path> + Send + 'async_recursion,
     compression: Compression,
 ) -> Result<()> {
-    for entry in read_dir(source.join(dir.as_ref()))? {
+    for entry in read_dir(source.as_ref().join(dir.as_ref()))? {
         let entry = canonicalize(entry?.path()).await?;
         let meta = metadata(&entry).await?;
         if meta.is_dir() {
             compress_dir(
                 writer,
-                source,
+                source.as_ref(),
                 &dir.as_ref().join(entry.file_name().unwrap()),
                 compression,
             )

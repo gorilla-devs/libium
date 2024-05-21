@@ -88,15 +88,12 @@ impl Downloadable {
     /// The `update` closure is called with the chunk length whenever a chunk is downloaded and written.
     ///
     /// Returns the size of the file and the filename
-    pub async fn download<UF>(
+    pub async fn download(
         self,
         client: &Client,
         output_dir: &Path,
-        mut update: UF,
-    ) -> Result<(usize, String)>
-    where
-        UF: FnMut(usize) + Send,
-    {
+        update: impl Fn(usize) + Send,
+    ) -> Result<(usize, String)> {
         let (filename, url, size) = (self.filename(), self.download_url, self.length);
         let out_file_path = output_dir.join(&self.output);
         let temp_file_path = out_file_path.with_extension("part");

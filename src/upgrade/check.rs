@@ -4,9 +4,9 @@ use furse::structures::file_structs::File;
 use octocrab::models::repos::{Asset, Release};
 use std::cmp::Reverse;
 
-pub(crate) fn game_version_check<S: AsRef<str>>(
+pub(crate) fn game_version_check(
     game_version_to_check: Option<&str>,
-    versions: &[S],
+    versions: &[impl AsRef<str>],
 ) -> bool {
     game_version_to_check
         .map(|version| versions.iter().any(|v| v.as_ref() == version))
@@ -14,9 +14,9 @@ pub(crate) fn game_version_check<S: AsRef<str>>(
         .unwrap_or(true)
 }
 
-fn game_version_check_contain<S: AsRef<str>>(
+fn game_version_check_contain(
     game_version_to_check: Option<&str>,
-    versions: &[S],
+    versions: &[impl AsRef<str>],
 ) -> bool {
     game_version_to_check
         .map(|version| versions.iter().any(|v| v.as_ref().contains(version)))
@@ -24,9 +24,9 @@ fn game_version_check_contain<S: AsRef<str>>(
         .unwrap_or(true)
 }
 
-pub(crate) fn mod_loader_check<S: AsRef<str>>(
+pub(crate) fn mod_loader_check(
     mod_loader_to_check: Option<ModLoader>,
-    loaders: &[S],
+    loaders: &[impl AsRef<str>],
 ) -> bool {
     mod_loader_to_check
         .map(|loader| loaders.iter().any(|l| l.as_ref().parse() == Ok(loader)))

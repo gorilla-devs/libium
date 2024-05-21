@@ -26,18 +26,14 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// Download and open the latest file of `project_id`
 ///
-/// Calls `total` once at the beginning with the file size when it is determined that the file needs to be downloaded.
+/// Calls `total` once at the beginning with the file size if it is determined that the file needs to be downloaded.
 /// Calls `update` with the chunk length whenever a chunk is downloaded and written.
-pub async fn download_curseforge_modpack<TF, UF>(
+pub async fn download_curseforge_modpack(
     curseforge: &Furse,
     project_id: i32,
-    total: TF,
-    update: UF,
-) -> Result<File>
-where
-    TF: FnOnce(usize) + Send,
-    UF: FnMut(usize) + Send,
-{
+    total: impl FnOnce(usize) + Send,
+    update: impl Fn(usize) + Send,
+) -> Result<File> {
     let latest_file: Downloadable = curseforge
         .get_mod_files(project_id)
         .await?
@@ -59,16 +55,12 @@ where
 ///
 /// Calls `total` once at the beginning with the file size when it is determined that the file needs to be downloaded.
 /// Calls `update` with the chunk length whenever a chunk is downloaded and written.
-pub async fn download_modrinth_modpack<TF, UF>(
+pub async fn download_modrinth_modpack(
     modrinth: &Ferinth,
     project_id: &str,
-    total: TF,
-    update: UF,
-) -> Result<File>
-where
-    TF: Fn(usize) + Send,
-    UF: Fn(usize) + Send,
-{
+    total: impl FnOnce(usize) + Send,
+    update: impl Fn(usize) + Send,
+) -> Result<File> {
     let version_file: Downloadable = modrinth
         .list_versions(project_id)
         .await?

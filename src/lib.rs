@@ -31,7 +31,7 @@ pub fn get_minecraft_dir() -> PathBuf {
 /// Read `source` and return the data as a string
 ///
 /// A wrapper for dealing with the read buffer.
-pub async fn read_wrapper<S: AsyncReadExt + Unpin>(mut source: S) -> Result<String> {
+pub async fn read_wrapper(mut source: impl AsyncReadExt + Unpin) -> Result<String> {
     let mut buffer = String::new();
     source.read_to_string(&mut buffer).await?;
     Ok(buffer)
