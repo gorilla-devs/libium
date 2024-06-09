@@ -36,3 +36,15 @@ pub async fn read_wrapper(mut source: impl AsyncReadExt + Unpin) -> Result<Strin
     source.read_to_string(&mut buffer).await?;
     Ok(buffer)
 }
+
+pub struct APIs<'a> {
+    pub mr: &'a ferinth::Ferinth,
+    pub cf: &'a furse::Furse,
+    pub gh: &'a octocrab::Octocrab,
+}
+
+impl<'a> APIs<'a> {
+    pub fn new(mr: &'a ferinth::Ferinth, cf: &'a furse::Furse, gh: &'a octocrab::Octocrab) -> Self {
+        Self { mr, cf, gh }
+    }
+}

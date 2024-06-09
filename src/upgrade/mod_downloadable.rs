@@ -1,21 +1,21 @@
 use super::{check, DistributionDeniedError, Downloadable};
-use crate::config::structs::{Mod, ModIdentifier, ModLoader};
-use ferinth::{
-    structures::version::{Version, VersionFile},
-    Ferinth,
+use crate::{
+    config::structs::{Mod, ModIdentifier, ModLoader},
+    APIs,
 };
-use furse::{structures::file_structs::File, Furse};
-use octocrab::{
-    models::repos::{Asset, Release},
-    Octocrab,
-};
+use ferinth::structures::version::{Version, VersionFile};
+use furse::structures::file_structs::File;
+use octocrab::models::repos::{Asset, Release};
 
 #[derive(Debug, thiserror::Error)]
-#[error("{}", .0)]
 pub enum Error {
+    #[error(transparent)]
     DistributionDenied(#[from] DistributionDeniedError),
+    #[error("Modrinth: {0}")]
     ModrinthError(#[from] ferinth::Error),
+    #[error("CurseForge: {0}")]
     CurseForgeError(#[from] furse::Error),
+    #[error("GitHub: {0}")]
     GitHubError(#[from] octocrab::Error),
     #[error("No compatible file was found")]
     NoCompatibleFile,
@@ -72,12 +72,24 @@ pub(crate) fn get_latest_compatible_asset<'a>(
     game_version_to_check: Option<&str>,
     mod_loader_to_check: Option<ModLoader>,
 ) -> Option<(&'a Asset, bool)> {
-    match check::github(releases, game_version_to_check, mod_loader_to_check) {
-        Some(some) => Some((some, false)),
+    // Combine all the assets of every release
+    let assets = releases.iter().flat_map(|r| &r.assets).collect::<Vec<_>>();
+
+    match check::github(
+        // Extract just the names of the assets
+        &assets.iter().map(|a| &a.name).collect::<Vec<_>>(),
+        game_version_to_check,
+        mod_loader_to_check,
+    ) {
+        Some(index) => Some((assets[index], false)),
         None => {
             if mod_loader_to_check == Some(ModLoader::Quilt) {
-                check::github(releases, game_version_to_check, Some(ModLoader::Fabric))
-                    .map(|some| (some, true))
+                get_latest_compatible_asset(
+                    releases,
+                    game_version_to_check,
+                    Some(ModLoader::Fabric),
+                )
+                .map(|some| (some.0, true))
             } else {
                 None
             }
@@ -89,9 +101,7 @@ pub(crate) fn get_latest_compatible_asset<'a>(
 ///
 /// Also returns whether Fabric backwards compatibility for Quilt was used.
 pub async fn get_latest_compatible_downloadable(
-    modrinth: &Ferinth,
-    curseforge: &Furse,
-    github: &Octocrab,
+    apis: APIs<'_>,
     mod_: &Mod,
     game_version_to_check: &str,
     mod_loader_to_check: ModLoader,
@@ -109,7 +119,7 @@ pub async fn get_latest_compatible_downloadable(
 
     match &mod_.identifier {
         ModIdentifier::CurseForgeProject(project_id) => get_latest_compatible_file(
-            curseforge.get_mod_files(*project_id).await?,
+            apis.cf.get_mod_files(*project_id).await?,
             game_version_to_check,
             mod_loader_to_check,
         )
@@ -118,7 +128,7 @@ pub async fn get_latest_compatible_downloadable(
             |ok| Ok((ok.0.try_into()?, ok.1)),
         ),
         ModIdentifier::ModrinthProject(project_id) => get_latest_compatible_version(
-            &modrinth.list_versions(project_id).await?,
+            &apis.mr.list_versions(project_id).await?,
             game_version_to_check,
             mod_loader_to_check,
         )
@@ -127,7 +137,8 @@ pub async fn get_latest_compatible_downloadable(
             |ok| Ok((ok.0.clone().into(), ok.2)),
         ),
         ModIdentifier::GitHubRepository(full_name) => get_latest_compatible_asset(
-            &github
+            &apis
+                .gh
                 .repos(&full_name.0, &full_name.1)
                 .releases()
                 .list()

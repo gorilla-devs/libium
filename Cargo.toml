@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.27.0"
+version = "1.28.0"
 edition = "2021"
 authors = [
     "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
@@ -27,7 +27,7 @@ rfd = { version = "0.14", default-features = false, optional = true, features = 
     "tokio",
 ] }
 octocrab = { version = "0.38", default-features = false, features = ["rustls"] }
-tokio = { version = "1.37", default-features = false, features = ["fs"] }
+tokio = { version = "1.38", default-features = false, features = ["fs"] }
 # Locked due to possibility of breaking changes
 async_zip = { version = "=0.0.17", default-features = false, features = [
     "deflate",

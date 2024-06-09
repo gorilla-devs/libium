@@ -6,11 +6,8 @@ use reqwest::Client;
 use tokio::fs::{create_dir_all, File};
 
 #[derive(Debug, thiserror::Error)]
-#[error("{}: {}", self, .0)]
+#[error(transparent)]
 pub enum Error {
-    #[error(
-        "The developer of this modpack has denied third party applications from downloading it"
-    )]
     /// The user can manually download the modpack zip file and place it in `~/.config/ferium/.cache/` to mitigate this.
     /// However, they will have to manually update the modpack file.
     DistributionDenied(#[from] DistributionDeniedError),

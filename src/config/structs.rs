@@ -105,19 +105,19 @@ pub enum ModIdentifier {
     GitHubRepository((String, String)),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModIdentifierRef<'a> {
-    CurseForgeProject(&'a i32),
+    CurseForgeProject(i32),
     ModrinthProject(&'a str),
-    GitHubRepository(&'a (String, String)),
+    GitHubRepository((&'a str, &'a str)),
 }
 
 impl ModIdentifier {
     pub fn as_ref(&self) -> ModIdentifierRef {
         match self {
-            ModIdentifier::CurseForgeProject(v) => ModIdentifierRef::CurseForgeProject(v),
+            ModIdentifier::CurseForgeProject(v) => ModIdentifierRef::CurseForgeProject(*v),
             ModIdentifier::ModrinthProject(v) => ModIdentifierRef::ModrinthProject(v),
-            ModIdentifier::GitHubRepository(v) => ModIdentifierRef::GitHubRepository(v),
+            ModIdentifier::GitHubRepository(v) => ModIdentifierRef::GitHubRepository((&v.0, &v.1)),
         }
     }
 }
@@ -131,12 +131,13 @@ pub enum ModLoader {
 }
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
-#[error("The given string is not a mod loader")]
+#[error("The given string is not a recognised mod loader")]
 pub struct ModLoaderParseError;
 
 impl FromStr for ModLoader {
     type Err = ModLoaderParseError;
 
+    // This implementation is case-insensitive
     fn from_str(from: &str) -> Result<Self, Self::Err> {
         match from.trim().to_lowercase().as_str() {
             "quilt" => Ok(Self::Quilt),

@@ -14,7 +14,7 @@ use tokio::{
 };
 
 #[derive(Debug, thiserror::Error)]
-#[error("{}", .0)]
+#[error(transparent)]
 pub enum Error {
     ReqwestError(#[from] reqwest::Error),
     IOError(#[from] std::io::Error),
@@ -34,7 +34,7 @@ pub struct Downloadable {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("The developer of this mod has denied third party applications from downloading it")]
+#[error("The developer of this project has denied third party applications from downloading it")]
 pub struct DistributionDeniedError(pub i32, pub i32);
 
 impl TryFrom<File> for Downloadable {

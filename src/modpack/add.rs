@@ -8,7 +8,6 @@ use reqwest::StatusCode;
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
-#[error("{}", .0)]
 pub enum Error {
     #[error("Modpack is already added to profile")]
     AlreadyAdded,
@@ -16,7 +15,9 @@ pub enum Error {
     DoesNotExist,
     #[error("The project is not a modpack")]
     NotAModpack,
+    #[error("Modrinth: {0}")]
     ModrinthError(ferinth::Error),
+    #[error("CurseForge: {0}")]
     CurseForgeError(furse::Error),
 }
 
