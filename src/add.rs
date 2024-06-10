@@ -24,7 +24,7 @@ pub enum Error {
     NotAMod,
     #[error("GitHub: {0}")]
     GitHubError(String),
-    #[error("GitHub: {0}")]
+    #[error("GitHub: {0:#?}")]
     OctocrabError(#[from] octocrab::Error),
     #[error("Modrinth: {0}")]
     ModrinthError(#[from] ferinth::Error),
@@ -33,13 +33,14 @@ pub enum Error {
 }
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct GraphQlResponse {
     data: HashMap<String, Option<ResponseData>>,
+    #[serde(default)]
     errors: Vec<GraphQLError>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct GraphQLError {
     #[serde(rename = "type")]
     type_: String,
@@ -47,30 +48,30 @@ struct GraphQLError {
     message: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ResponseData {
     owner: OwnerData,
     name: String,
     releases: ReleaseConnection,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct OwnerData {
     login: String,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ReleaseConnection {
     nodes: Vec<Release>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Release {
     #[serde(rename = "releaseAssets")]
     assets: ReleaseAssetConnection,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ReleaseAssetConnection {
     nodes: Vec<ReleaseAsset>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ReleaseAsset {
     name: String,
 }

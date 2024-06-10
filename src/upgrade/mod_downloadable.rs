@@ -15,7 +15,7 @@ pub enum Error {
     ModrinthError(#[from] ferinth::Error),
     #[error("CurseForge: {0}")]
     CurseForgeError(#[from] furse::Error),
-    #[error("GitHub: {0}")]
+    #[error("GitHub: {0:#?}")]
     GitHubError(#[from] octocrab::Error),
     #[error("No compatible file was found")]
     NoCompatibleFile,
