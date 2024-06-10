@@ -96,6 +96,8 @@ pub async fn add(
     profile: &mut Profile,
     identifiers: Vec<String>,
     perform_checks: bool,
+    check_game_version: bool,
+    check_mod_loader: bool,
 ) -> Result<(Vec<String>, Vec<(String, Error)>)> {
     let mut mr_ids = Vec::new();
     let mut cf_ids = Vec::new();
@@ -199,7 +201,13 @@ pub async fn add(
             cf_ids.swap_remove(i);
         }
 
-        match curseforge(&project, profile, perform_checks, true, true) {
+        match curseforge(
+            &project,
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        ) {
             Ok(_) => success_names.push(project.name),
             Err(err) => errors.push((format!("{} ({})", project.name, project.id), err)),
         }
@@ -218,7 +226,13 @@ pub async fn add(
             mr_ids.swap_remove(i);
         }
 
-        match modrinth(&project, profile, perform_checks, true, true) {
+        match modrinth(
+            &project,
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        ) {
             Ok(_) => success_names.push(project.title),
             Err(err) => errors.push((format!("{} ({})", project.title, project.id), err)),
         }
@@ -230,7 +244,13 @@ pub async fn add(
     );
 
     for (repo, asset_names) in gh_repos {
-        match github(&repo, profile, Some(&asset_names), true, true) {
+        match github(
+            &repo,
+            profile,
+            Some(&asset_names),
+            check_game_version,
+            check_mod_loader,
+        ) {
             Ok(_) => success_names.push(format!("{}/{}", repo.0, repo.1)),
             Err(err) => errors.push((format!("{}/{}", repo.0, repo.1), err)),
         }
