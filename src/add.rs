@@ -287,10 +287,8 @@ pub fn github(
 
 use ferinth::structures::project::{Project, ProjectType};
 
-/// Check if the project of `project_id` exists, is a mod, and is compatible with `profile`.
+/// Check if the project of `project_id` has not already been added, is a mod, and is compatible with `profile`.
 /// If so, add it to the `profile`.
-///
-/// Returns the project name and donation URLs to display to the user
 pub fn modrinth(
     project: &Project,
     profile: &mut Profile,
@@ -311,13 +309,21 @@ pub fn modrinth(
 
     // Check if the project is compatible
     } else if !perform_checks // Short circuit if the checks should not be performed
-        || (game_version_check(
-            profile.get_version(check_game_version).as_ref(),
-            &project.game_versions,
-        ) && (mod_loader_check(profile.get_loader(check_mod_loader), &project.loaders) | (
-            // Fabric backwards compatibility in Quilt
-            profile.mod_loader == ModLoader::Quilt && mod_loader_check(Some(ModLoader::Fabric), &project.loaders)
-        )))
+        || (
+            game_version_check(
+                profile.get_version(check_game_version).as_ref(),
+                &project.game_versions,
+            ) && (
+                mod_loader_check(
+                    profile.get_loader(check_mod_loader),
+                    &project.loaders
+                ) || (
+                // Fabric backwards compatibility in Quilt
+                profile.mod_loader == ModLoader::Quilt
+                    && mod_loader_check(Some(ModLoader::Fabric), &project.loaders)
+                )
+            )
+        )
     {
         // Add it to the profile
         profile.mods.push(Mod {
@@ -333,7 +339,7 @@ pub fn modrinth(
     }
 }
 
-/// Check if the mod of `project_id` has already been added, is a mod, and is compatible with `profile`.
+/// Check if the mod of `project_id` has not already been added, is a mod, and is compatible with `profile`.
 /// If so, add it to the `profile`.
 pub fn curseforge(
     project: &furse::structures::mod_structs::Mod,
@@ -360,20 +366,27 @@ pub fn curseforge(
     // Check if the mod is compatible
     } else if !perform_checks // Short-circuit if checks do not have to be performed
 
-        // Else extract the game version and loader from the 'latest files',
+        // Extract game version and loader pairs from the 'latest files',
         // which generally exist for every supported game version and loader combination
-        || project
-            .latest_files_indexes
-            .iter()
-            .map(|f| {
-                (
-                    &f.game_version,
-                    f.mod_loader
-                        .as_ref()
-                        .and_then(|l| ModLoader::from_str(&format!("{:?}", l)).ok()),
-                )
-            })
-            .any(|p| p == (&profile.game_version, Some(profile.mod_loader)))
+        || {
+            let version = profile.get_version(check_game_version);
+            let loader = profile.get_loader(check_mod_loader);
+            project
+                .latest_files_indexes
+                .iter()
+                .map(|f| {
+                    (
+                        &f.game_version,
+                        f.mod_loader
+                            .as_ref()
+                            .and_then(|l| ModLoader::from_str(&format!("{:?}", l)).ok()),
+                    )
+                })
+                .any(|p| {
+                    (version.is_none() || version == Some(p.0)) &&
+                    (loader.is_none() || loader == p.1)
+                })
+        }
     {
         profile.mods.push(Mod {
             name: project.name.trim().to_string(),
