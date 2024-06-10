@@ -1,23 +1,22 @@
 # Changelog for Libium
 
 ## `1.28.0`
-### 
+### 10.06.2024
 
 - Add `APIs` struct to store and pass ferinth, furse, and octocrab clients together
 - Make `ModIdentifierRef::GitHubRepository` have the references inside the tuple
 - `ModIdentifierRef` is now `Copy`
 - Replace many instances of `&str` with `impl AsRef<str>`
 - Change `upgrade::check::github()` to accept a list of asset names instead
-  - This is so that both REST and GraphQL responses can be checked
+  - This is so that both REST and GraphQL responses can be used
 - Improved error messages for custom error types
 
 #### Completely reworked project adding
 
 - Simplify error handling since custom catching of "not found" errors is no longer needed
 - Added a function to parse a string into either a curseforge, github, or modrinth identifier
-- `add()` accepts multiple IDs now
 - Required information about projects is now sent batched to the relevent APIs
-- GitHub batched queries required writing a GraphQL query and creating the structs required for deserialising the data
+- GitHub batched queries use GraphQL
 - `github()`, `curseforge()`, and `modrinth()` do not perform any network requests, they solely use the data provided in their arguments
 - All of these functions now perform compatibility checks by themselves, again without any additional network requests
 

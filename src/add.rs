@@ -42,7 +42,7 @@ struct GraphQlResponse {
 #[derive(Deserialize)]
 struct GraphQLError {
     #[serde(rename = "type")]
-    _type: String,
+    type_: String,
     path: Vec<String>,
     message: String,
 }
@@ -167,7 +167,7 @@ pub async fn add(
                         .expect("Unexpected response data")];
                     format!("{}/{}", id.0, id.1)
                 },
-                if v._type == "NOT_FOUND" {
+                if v.type_ == "NOT_FOUND" {
                     Error::DoesNotExist
                 } else {
                     Error::GitHubError(v.message)
@@ -252,7 +252,7 @@ pub fn github(
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name.to_lowercase() == id.1.as_ref().to_lowercase()
+        mod_.name.eq_ignore_ascii_case(id.1.as_ref())
             || ModIdentifierRef::GitHubRepository((id.0.as_ref(), id.1.as_ref()))
                 == mod_.identifier.as_ref()
     }) {
@@ -298,7 +298,7 @@ pub fn modrinth(
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name.to_lowercase() == project.title.to_lowercase()
+        mod_.name.eq_ignore_ascii_case(&project.title)
             || ModIdentifierRef::ModrinthProject(&project.id) == mod_.identifier.as_ref()
     }) {
         Err(Error::AlreadyAdded)
@@ -327,7 +327,7 @@ pub fn modrinth(
     {
         // Add it to the profile
         profile.mods.push(Mod {
-            name: project.title.trim().to_string(),
+            name: project.title.trim().to_owned(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
             check_game_version,
             check_mod_loader,
@@ -350,7 +350,7 @@ pub fn curseforge(
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name.to_lowercase() == project.name.to_lowercase()
+        mod_.name.eq_ignore_ascii_case(&project.name)
             || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
         Err(Error::AlreadyAdded)
