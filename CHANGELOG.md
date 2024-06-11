@@ -1,5 +1,14 @@
 # Changelog for Libium
 
+## `1.29.0`
+### 11.06.2024
+
+- Made argument and return type in `add::parse_id()` owned
+- Made `add()` take `ModIdentifier`s instead of `String`s, so the function itself doesn't parse IDs
+- Remove duplicate curseforge and modrinth IDs in `add()`
+- Added `scan` module
+- `scan()` reads the files in the provided directory, sends their hashes to modrinth and curseforge, and return the project/mod IDs provided
+
 ## `1.28.0`
 ### 10.06.2024
 

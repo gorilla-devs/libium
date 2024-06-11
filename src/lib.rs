@@ -2,9 +2,12 @@ pub mod add;
 pub mod config;
 pub mod file_picker;
 pub mod modpack;
+pub mod scan;
 pub mod upgrade;
 pub mod version_ext;
-pub mod scan;
+
+pub use add::add;
+pub use scan::scan;
 
 use once_cell::sync::Lazy;
 use std::path::PathBuf;

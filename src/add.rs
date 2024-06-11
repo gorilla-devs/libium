@@ -76,15 +76,15 @@ struct ReleaseAsset {
     name: String,
 }
 
-pub fn parse_id(id: &str) -> ModIdentifierRef<'_> {
+pub fn parse_id(id: String) -> ModIdentifier {
     if let Ok(id) = id.parse() {
-        ModIdentifierRef::CurseForgeProject(id)
+        ModIdentifier::CurseForgeProject(id)
     } else {
         let split = id.split('/').collect::<Vec<_>>();
         if split.len() == 2 {
-            ModIdentifierRef::GitHubRepository((split[0], split[1]))
+            ModIdentifier::GitHubRepository((split[0].to_owned(), split[1].to_owned()))
         } else {
-            ModIdentifierRef::ModrinthProject(id)
+            ModIdentifier::ModrinthProject(id)
         }
     }
 }
@@ -95,7 +95,7 @@ pub fn parse_id(id: &str) -> ModIdentifierRef<'_> {
 pub async fn add(
     apis: APIs<'_>,
     profile: &mut Profile,
-    identifiers: Vec<String>,
+    identifiers: Vec<ModIdentifier>,
     perform_checks: bool,
     check_game_version: bool,
     check_mod_loader: bool,
@@ -105,22 +105,28 @@ pub async fn add(
     let mut gh_ids = Vec::new();
     let mut errors = Vec::new();
 
-    for id in &identifiers {
-        match parse_id(id) {
-            ModIdentifierRef::CurseForgeProject(id) => cf_ids.push(id),
-            ModIdentifierRef::ModrinthProject(id) => mr_ids.push(id),
-            ModIdentifierRef::GitHubRepository(id) => gh_ids.push(id),
+    for id in identifiers {
+        match id {
+            ModIdentifier::CurseForgeProject(id) => cf_ids.push(id),
+            ModIdentifier::ModrinthProject(id) => mr_ids.push(id),
+            ModIdentifier::GitHubRepository(id) => gh_ids.push(id),
         }
     }
 
     let cf_projects = if !cf_ids.is_empty() {
+        cf_ids.sort_unstable();
+        cf_ids.dedup();
         apis.cf.get_mods(cf_ids.clone()).await?
     } else {
         Vec::new()
     };
 
     let mr_projects = if !mr_ids.is_empty() {
-        apis.mr.get_multiple_projects(&mr_ids).await?
+        mr_ids.sort_unstable();
+        mr_ids.dedup();
+        apis.mr
+            .get_multiple_projects(&mr_ids.iter().map(AsRef::as_ref).collect::<Vec<_>>())
+            .await?
     } else {
         Vec::new()
     };
@@ -164,7 +170,7 @@ pub async fn add(
         errors.extend(response.errors.into_iter().map(|v| {
             (
                 {
-                    let id = gh_ids[v.path[0]
+                    let id = &gh_ids[v.path[0]
                         .strip_prefix('_')
                         .and_then(|s| s.parse::<usize>().ok())
                         .expect("Unexpected response data")];
@@ -222,7 +228,7 @@ pub async fn add(
     for project in mr_projects {
         if let Some(i) = mr_ids
             .iter()
-            .position(|&id| id == project.id || project.slug.eq_ignore_ascii_case(id))
+            .position(|id| id == &project.id || project.slug.eq_ignore_ascii_case(id))
         {
             mr_ids.swap_remove(i);
         }
