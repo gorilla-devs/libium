@@ -1,9 +1,170 @@
 # Changelog for Libium
 
-## `1.19.0`
-### 03.06.2022
+## `1.28.0`
+### 10.06.2024
 
-Add functionality to get a version/file from a mod file
+- Add `APIs` struct to store and pass ferinth, furse, and octocrab clients together
+- Make `ModIdentifierRef::GitHubRepository` have the references inside the tuple
+- `ModIdentifierRef` is now `Copy`
+- Replace many instances of `&str` with `impl AsRef<str>`
+- Change `upgrade::check::github()` to accept a list of asset names instead
+  - This is so that both REST and GraphQL responses can be used
+- Improved error messages for custom error types
+
+#### Completely reworked project adding
+
+- Simplify error handling since custom catching of "not found" errors is no longer needed
+- Added a function to parse a string into either a curseforge, github, or modrinth identifier
+- Required information about projects is now sent batched to the relevent APIs
+- GitHub batched queries use GraphQL
+- `github()`, `curseforge()`, and `modrinth()` do not perform any network requests, they solely use the data provided in their arguments
+- All of these functions now perform compatibility checks by themselves, again without any additional network requests
+
+## `1.27.0`
+### 21.05.24
+
+- Update dependencies
+- Replace references with `AsRef` in as many places as possible
+- Replace functions generics with direct `impl`s as much as possible
+- Added `add_multiple` and `add_single` functions to `add` from ferium to facilitate adding of multiple mods
+
+## `1.26.2`
+### 23.02.2024
+
+Add Fabric backwards compatibility for Quilt when adding Modrinth mods.
+
+## `1.26.1`
+### 22.02.2024
+
+Fix a bug where the directory to which a file was being downloaded would not be created.
+
+## `1.26.0`
+### 22.02.2024
+
+- Replace `Option<bool>` with `bool` for whether or not to check game version or mod loader
+- Added `ModIdentifierRef` and `ModIdentifier.as_ref()` for comparing mod identifiers without cloning
+- Replaced many procedural loops with functional alternatives
+- Added `Profile.get_version(check_game_version)` and `Profile.get_loader(check_mod_loader)` to replace this common pattern:
+    ```rs
+    if check_(game_version | mod_loader) {
+        Some(&profile.(game_version | mod_loader))
+    } else {
+        None
+    }
+    ```
+- Use the `game_versions` and `loaders` specified in the Modrinth `Project` struct instead of using version resolution
+- Only use `.to_string()` instead of `.into<String>()` when converting a value to a `String`
+- Replace `config::file_path()` with `DEFAULT_CONFIG_PATH` which uses `Lazy`
+- Extract the file opening to `open_config_file()`
+- Move `config::read_file()` to `read_wrapper()` since it is not specific to the `config` module
+- Derive and use `Default` for the `config::Config` when creating an empty config
+- Skip serialising the active index and profiles/modpacks vectors if they're zero or empty
+- Remove the `Option` in `check_game_version` and `check_mod_loader` fields for `Mod`
+- Replace `TryFrom<&str>` with `FromStr` for `ModLoader`
+- Derive `Copy` for `ModLoader`
+- Determine `get_minecraft_dir()` at compile-time
+- Set the UNIX permissions when compressing a directory
+- Replace `curseforge::read_manifest_file()` and `modrinth::read_metadata_file()` with `read_file_from_zip()`
+- Refactor `upgrade::check` to make it more readable
+- Remove the subdirectory classification done when converting to a `Downloadable`, modpack installers can do this manually
+
+## `1.25.0`
+### 07.02.2024
+
+Support for [NeoForge](https://neoforged.net)
+
+## `1.24.2`
+### 05.02.2024
+
+- Fix [#343](https://github.com/gorilla-devs/ferium/issues/343); When checking github assets, check that the name _ends with_ `.jar`, and strip it before splitting the string
+- Tweak the distribution denied error message
+
+## `1.24.1`
+### 30.01.2024
+
+Fix compilation on linux
+
+## `1.24.0`
+### 28.01.2024
+
+- In `add.rs`, add mods to the profile and return only the mod name
+- Add option to override compatibility checks when adding
+- Update `async_zip` to the latest version `0.0.16`
+
+## `1.23.0`
+### 23.03.2023
+
+- Switch to `async_zip`
+- Add `name` argument to `pick_folder()`
+- Move `get_minecraft_dir()` to root folder, remove `misc` module and `get_major_mc_versions()`
+- Reading manifest or metadata files now returns an optional result
+- Removed the rather redundant `deser_manifest()` and `deser_metadata()` functions
+- Add a recursive `compress_dir()` function
+- Tweak Modrinth modpack structs to use ferinth's types
+- Tweak `Downloadable`'s file length field's type
+- Wrap `Downloadable::download()`'s opened file in a `BufWriter`
+- Only update the progress bar after the write is finished
+- Remove `mutex_ext` and `force_lock()`
+
+## `1.22.1`
+### 01.01.2023
+
+- Only use required features for `zip`
+- Switch to `once_cell` and remove `lazy_static`
+
+## `1.22.0`
+### 23.12.2022
+
+Loosen dependency specification and remove unnecessary `bytes` dependency
+
+## `1.21.1`
+### 13.11.2022
+
+Fixed a bug where the file returned from `config::get_file()` is not readable if it's newly created
+
+## `1.21.0`
+### 13.11.2022
+
+- Update dependencies, remove `urlencoding` and `size`
+- Remove unnecessary `Arc`s
+- Use the website URL to determine that a project is a a mod/modpack on CF
+- Simplify `config` module methods
+- Remove redundant doc-comments
+- File picker now uses sync dialogue on all platforms
+- Edit `file_picker.rs` to use the updated feature flags, fixes [gorilla-devs/ferium#228](https://github.com/gorilla-devs/ferium/issues/228)
+- The file picker function will now resolve `~` and `.` to the home and cwd respectively
+- Added the android PojavLauncher to the default minecraft directory function
+- Change the function signature of `check` functions
+- Change `Downloadable`'s `size` field into `length`, remove the `Option`, and make it a number
+- Remove the `total` closure in `Downloadable::download()`
+- Remove `Downloadable::from_file_id()`
+- Edit functions in `mod_downloadable.rs` to match those of `check.rs`
+
+## `1.20.0`
+### 03.09.2022
+
+- Update dependencies
+- Clean up imports in `add.rs`
+- Switch to only XDG backend for `rfd`
+- `add::modrinth()` and `add::curseforge()` now directly accept the project struct
+
+## `1.19.2`
+### 18.07.2022
+
+Fix a bug where the file is not rewound after being written to
+
+Fixes [gorilla-devs/ferium#87](https://github.com/gorilla-devs/ferium/issues/87)
+
+## `1.19.1`
+### 17.07.2022
+
+Update dependencies
+
+## `1.19.0`
+### 24.06.2022
+
+- Update dependencies
+- Make `Downloadable` use `url::Url`
 
 ## `1.18.2`
 ### 12.06.2022

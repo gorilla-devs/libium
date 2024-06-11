@@ -7,13 +7,9 @@ pub struct Manifest {
     pub minecraft: Minecraft,
     /// The type of this manifest ??
     pub manifest_type: ManifestType,
-    /// The version of this manifest
     pub manifest_version: i32,
-    /// The name of this modpack
     pub name: String,
-    /// The version of this modpack
     pub version: String,
-    /// The author who created this modpack
     pub author: String,
     /// The files this modpack needs
     pub files: Vec<ModpackFile>,
@@ -24,7 +20,6 @@ pub struct Manifest {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Minecraft {
-    /// The game version to install
     pub version: String,
     /// A list of mod loaders that can be used
     pub mod_loaders: Vec<ModpackModLoader>,
@@ -39,12 +34,9 @@ pub enum ManifestType {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ModpackFile {
     #[serde(rename = "projectID")]
-    /// The project ID of this mod
     pub project_id: i32,
     #[serde(rename = "fileID")]
-    /// The specific file ID to download
     pub file_id: i32,
-    /// Whether this mod is required
     pub required: bool,
 }
 
@@ -53,6 +45,6 @@ pub struct ModpackFile {
 pub struct ModpackModLoader {
     /// The name/ID of the mod loader
     pub id: String,
-    /// Whether this is the primary/recommended mod loader
+    /// Whether this is the recommended mod loader
     pub primary: bool,
 }

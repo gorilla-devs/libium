@@ -1,92 +1,105 @@
 use crate::{config::structs::ModLoader, version_ext::VersionExt};
-use ferinth::structures::version_structs::{Version, VersionFile};
+use ferinth::structures::version::{Version, VersionFile};
 use furse::structures::file_structs::File;
-use octocrab::models::repos::{Asset, Release};
+use std::cmp::Reverse;
 
-/// Check if the target `to_check` version is present in `game_versions`.
-fn check_game_version(game_versions: &[String], to_check: &str) -> bool {
-    game_versions.iter().any(|version| version == to_check)
+pub(crate) fn game_version_check(
+    game_version_to_check: Option<&impl AsRef<str>>,
+    versions: &[impl AsRef<str>],
+) -> bool {
+    game_version_to_check
+        .map(|version| versions.iter().any(|v| v.as_ref() == version.as_ref()))
+        // assume test passed if mod loader check is disabled
+        .unwrap_or(true)
 }
 
-/// Check if the target `to_check` mod loader is present in `mod_loaders`
-fn check_mod_loader(mod_loaders: &[String], to_check: &ModLoader) -> bool {
-    mod_loaders
-        .iter()
-        .any(|mod_loader| Ok(to_check) == ModLoader::try_from(mod_loader).as_ref())
+fn game_version_check_contain(
+    game_version_to_check: Option<impl AsRef<str>>,
+    versions: &[impl AsRef<str>],
+) -> bool {
+    game_version_to_check
+        .map(|version| {
+            versions
+                .iter()
+                .any(|v| v.as_ref().contains(version.as_ref()))
+        })
+        // assume test passed if mod loader check is disabled
+        .unwrap_or(true)
+}
+
+pub(crate) fn mod_loader_check(
+    mod_loader_to_check: Option<ModLoader>,
+    loaders: &[impl AsRef<str>],
+) -> bool {
+    mod_loader_to_check
+        .map(|loader| loaders.iter().any(|l| l.as_ref().parse() == Ok(loader)))
+        // assume test passed if mod loader check is disabled
+        .unwrap_or(true)
 }
 
 /// Get the latest compatible file from `files`
-pub fn curseforge<'a>(
-    files: &'a mut Vec<File>,
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Option<&'a File> {
-    // Make the newest files come first
-    files.sort_unstable_by_key(|file| file.file_date);
-    files.reverse();
+pub fn curseforge(
+    files: &mut [File],
+    game_version_to_check: Option<impl AsRef<str>>,
+    mod_loader_to_check: Option<ModLoader>,
+) -> Option<&File> {
+    // Sort files to make the latest ones come first
+    files.sort_unstable_by_key(|file1| Reverse(file1.file_date));
 
-    for file in files {
-        if (Some(false) == should_check_game_version
-            || check_game_version(&file.game_versions, game_version_to_check))
-            && (Some(false) == should_check_mod_loader
-                || check_mod_loader(&file.game_versions, mod_loader_to_check))
-        {
-            return Some(file);
-        }
-    }
-    None
+    // Immediately select the newest file if check is disabled, i.e. *_to_check is None
+    files.iter().find(|file| {
+        mod_loader_check(mod_loader_to_check, &file.game_versions)
+            && game_version_check(game_version_to_check.as_ref(), &file.game_versions)
+    })
 }
 
 /// Get the latest compatible version and version file from `versions`
-pub fn modrinth<'a>(
-    versions: &'a [Version],
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Option<(&'a VersionFile, &'a Version)> {
-    for version in versions {
-        if (Some(false) == should_check_game_version
-            || check_game_version(&version.game_versions, game_version_to_check))
-            && (Some(false) == should_check_mod_loader
-                || check_mod_loader(&version.loaders, mod_loader_to_check))
-        {
-            return Some((version.get_version_file(), version));
-        }
-    }
-    None
+pub fn modrinth(
+    versions: &[Version],
+    game_version_to_check: Option<impl AsRef<str>>,
+    mod_loader_to_check: Option<ModLoader>,
+) -> Option<(&VersionFile, &Version)> {
+    versions
+        .iter()
+        .find(|version| {
+            game_version_check(game_version_to_check.as_ref(), &version.game_versions)
+                && mod_loader_check(mod_loader_to_check, &version.loaders)
+        })
+        .map(|v| (v.get_version_file(), v))
 }
 
-/// Get the latest compatible asset from `releases`
-pub fn github<'a>(
-    releases: &'a [Release],
-    game_version_to_check: &str,
-    mod_loader_to_check: &ModLoader,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Option<&'a Asset> {
-    for release in releases {
-        for asset in &release.assets {
-            if asset.name.contains("jar")
-                // Sources JARs should not be used with the regular game
-                && !asset.name.contains("sources")
-                && (Some(false) == should_check_game_version
-                    || asset.name.contains(game_version_to_check))
-                && (Some(false) == should_check_mod_loader
-                    || check_mod_loader(
-                        &asset
-                            .name
-                            .split('-')
-                            .map(str::to_string)
-                            .collect::<Vec<_>>(),
-                        mod_loader_to_check,
-                    ))
-            {
-                return Some(asset);
-            }
-        }
-    }
-    None
+fn is_jar_file(asset_name: impl AsRef<str>) -> bool {
+    asset_name.as_ref().ends_with(".jar")
+}
+
+fn is_not_source(asset_name: impl AsRef<str>) -> bool {
+    !asset_name.as_ref().contains("source")
+}
+
+/// Search through release asset names and return the index of a compatible one
+pub fn github(
+    asset_names: &[impl AsRef<str>],
+    game_version_to_check: Option<impl AsRef<str>>,
+    mod_loader_to_check: Option<ModLoader>,
+) -> Option<usize> {
+    asset_names.iter().map(AsRef::as_ref).position(|name| {
+        is_jar_file(name)
+            && is_not_source(name)
+            && game_version_check_contain(
+                game_version_to_check.as_ref(),
+                &name
+                    .strip_suffix(".jar")
+                    .unwrap()
+                    .split('-')
+                    .collect::<Vec<_>>(),
+            )
+            && mod_loader_check(
+                mod_loader_to_check,
+                &name
+                    .strip_suffix(".jar")
+                    .unwrap()
+                    .split('-')
+                    .collect::<Vec<_>>(),
+            )
+    })
 }

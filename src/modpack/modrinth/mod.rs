@@ -1,20 +1,65 @@
 pub mod structs;
 
-use serde_json::error::Result;
-use std::io::{Read, Seek};
-use structs::Metadata;
-use zip::{result::ZipResult, ZipArchive};
+use async_zip::{error::Result, tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
+use std::{
+    fs::read_dir,
+    path::{Path, PathBuf},
+};
+use tokio::fs::{canonicalize, read, File};
+use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 
-/// Read the `input`'s metadata file to a string
-pub fn read_metadata_file(input: impl Read + Seek) -> ZipResult<String> {
-    let mut buffer = String::new();
-    ZipArchive::new(input)?
-        .by_name("modrinth.index.json")?
-        .read_to_string(&mut buffer)?;
-    Ok(buffer)
-}
+/// Create a Modrinth modpack at `output` using the provided `metadata` and optional `overrides`
+pub async fn create(
+    output: &Path,
+    metadata: &str,
+    overrides: Option<&Path>,
+    additional_mods: Option<&Path>,
+) -> Result<File> {
+    let compression = Compression::Deflate;
+    let mut writer = ZipFileWriter::new(File::create(output).await?.compat());
 
-/// Deserialise the given `input` into metadata
-pub fn deser_metadata(input: &str) -> Result<Metadata> {
-    serde_json::from_str(input)
+    // Add metadata to the zip file
+    writer
+        .write_entry_whole(
+            ZipEntryBuilder::new("modrinth.index.json".into(), compression),
+            metadata.as_bytes(),
+        )
+        .await?;
+
+    // Add the overrides to the zip file
+    if let Some(overrides) = overrides {
+        super::compress_dir(
+            &mut writer,
+            overrides.parent().unwrap(),
+            &PathBuf::from("overrides"),
+            compression,
+        )
+        .await?;
+    }
+
+    // Add additional (non-Modrinth) mods to the zip file
+    if let Some(path) = additional_mods {
+        for entry in read_dir(path)?
+            .flatten()
+            .filter(|entry| entry.file_type().map(|e| e.is_file()).unwrap_or(false))
+        {
+            let entry = canonicalize(entry.path()).await?;
+            writer
+                .write_entry_whole(
+                    ZipEntryBuilder::new(
+                        PathBuf::from("overrides")
+                            .join("mods")
+                            .with_file_name(entry.file_name().unwrap())
+                            .to_string_lossy()
+                            .as_ref()
+                            .into(),
+                        compression,
+                    ),
+                    &read(entry).await?,
+                )
+                .await?;
+        }
+    }
+
+    writer.close().await.map(Compat::into_inner)
 }

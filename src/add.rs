@@ -1,217 +1,423 @@
 use crate::{
-    config::structs::{ModIdentifier, Profile},
-    upgrade::mod_downloadable,
+    config::structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
+    upgrade::check::{self, game_version_check, mod_loader_check},
+    APIs,
 };
-use ferinth::{
-    structures::{
-        project_structs::{Project, ProjectType},
-        version_structs::Version,
-    },
-    Ferinth,
-};
-use furse::{structures::file_structs::File, Furse};
-use octocrab::{
-    models::{repos::Asset, Repository},
-    repos::RepoHandler,
-};
-use reqwest::StatusCode;
-use std::sync::Arc;
+use serde::Deserialize;
+use std::{collections::HashMap, str::FromStr};
 
-type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("The developer of this mod has denied third party applications from downloading it")]
+    #[error(
+        "The developer of this project has denied third party applications from downloading it"
+    )]
     /// The user can manually download the mod and place it in the `user` folder of the output directory to mitigate this.
-    /// However, they will have to manually update the mod
+    /// However, they will have to manually update the mod.
     DistributionDenied,
-    #[error("The project/repository has already been added")]
+    #[error("The project has already been added")]
     AlreadyAdded,
-    #[error("The project/repository does not exist")]
-    DoesNotExist,
-    #[error("The project/repository is not compatible")]
+    #[error("The project is not compatible")]
     Incompatible,
-    #[error("The project/repository is not a mod")]
+    #[error("The project does not exist")]
+    DoesNotExist,
+    #[error("The project is not a mod")]
     NotAMod,
-    #[error("{}", .0)]
-    GitHubError(octocrab::Error),
-    #[error("{}", .0)]
-    ModrinthError(ferinth::Error),
-    #[error("{}", .0)]
-    CurseForgeError(furse::Error),
+    #[error("GitHub: {0}")]
+    GitHubError(String),
+    #[error("GitHub: {0:#?}")]
+    OctocrabError(#[from] octocrab::Error),
+    #[error("Modrinth: {0}")]
+    ModrinthError(#[from] ferinth::Error),
+    #[error("CurseForge: {0}")]
+    CurseForgeError(#[from] furse::Error),
+}
+type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Deserialize, Debug)]
+struct GraphQlResponse {
+    data: HashMap<String, Option<ResponseData>>,
+    #[serde(default)]
+    errors: Vec<GraphQLError>,
 }
 
-impl From<furse::Error> for Error {
-    fn from(err: furse::Error) -> Self {
-        if let furse::Error::ReqwestError(source) = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::DoesNotExist
-            } else {
-                Self::CurseForgeError(err)
-            }
+#[derive(Deserialize, Debug)]
+struct GraphQLError {
+    #[serde(rename = "type")]
+    type_: String,
+    path: Vec<String>,
+    message: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ResponseData {
+    owner: OwnerData,
+    name: String,
+    releases: ReleaseConnection,
+}
+#[derive(Deserialize, Debug)]
+struct OwnerData {
+    login: String,
+}
+#[derive(Deserialize, Debug)]
+struct ReleaseConnection {
+    nodes: Vec<Release>,
+}
+#[derive(Deserialize, Debug)]
+struct Release {
+    #[serde(rename = "releaseAssets")]
+    assets: ReleaseAssetConnection,
+}
+#[derive(Deserialize, Debug)]
+struct ReleaseAssetConnection {
+    nodes: Vec<ReleaseAsset>,
+}
+#[derive(Deserialize, Debug)]
+struct ReleaseAsset {
+    name: String,
+}
+
+pub fn parse_id(id: &str) -> ModIdentifierRef<'_> {
+    if let Ok(id) = id.parse() {
+        ModIdentifierRef::CurseForgeProject(id)
+    } else {
+        let split = id.split('/').collect::<Vec<_>>();
+        if split.len() == 2 {
+            ModIdentifierRef::GitHubRepository((split[0], split[1]))
         } else {
-            Self::CurseForgeError(err)
+            ModIdentifierRef::ModrinthProject(id)
         }
     }
 }
 
-impl From<ferinth::Error> for Error {
-    fn from(err: ferinth::Error) -> Self {
-        if let ferinth::Error::ReqwestError(source) = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::DoesNotExist
-            } else {
-                Self::ModrinthError(err)
-            }
-        } else {
-            Self::ModrinthError(err)
+/// Classify the `identifiers` into the appropriate platforms, send batch requests to get the necessary information,
+/// check details about the projects, and add them to `profile` if suitable.
+/// Performs checks on the mods to see whether they're compatible with the profile if `perform_checks` is true
+pub async fn add(
+    apis: APIs<'_>,
+    profile: &mut Profile,
+    identifiers: Vec<String>,
+    perform_checks: bool,
+    check_game_version: bool,
+    check_mod_loader: bool,
+) -> Result<(Vec<String>, Vec<(String, Error)>)> {
+    let mut mr_ids = Vec::new();
+    let mut cf_ids = Vec::new();
+    let mut gh_ids = Vec::new();
+    let mut errors = Vec::new();
+
+    for id in &identifiers {
+        match parse_id(id) {
+            ModIdentifierRef::CurseForgeProject(id) => cf_ids.push(id),
+            ModIdentifierRef::ModrinthProject(id) => mr_ids.push(id),
+            ModIdentifierRef::GitHubRepository(id) => gh_ids.push(id),
         }
     }
-}
 
-impl From<octocrab::Error> for Error {
-    fn from(err: octocrab::Error) -> Self {
-        if let octocrab::Error::Http { source, .. } = &err {
-            if Some(StatusCode::NOT_FOUND) == source.status() {
-                Self::DoesNotExist
-            } else {
-                Self::GitHubError(err)
-            }
+    let cf_projects = if !cf_ids.is_empty() {
+        apis.cf.get_mods(cf_ids.clone()).await?
+    } else {
+        Vec::new()
+    };
+
+    let mr_projects = if !mr_ids.is_empty() {
+        apis.mr.get_multiple_projects(&mr_ids).await?
+    } else {
+        Vec::new()
+    };
+
+    let gh_repos = {
+        // Construct GraphQl query using raw strings
+        let mut graphql_query = "{".to_string();
+        for (i, (owner, name)) in gh_ids.iter().enumerate() {
+            graphql_query.push_str(&format!(
+                "_{i}: repository(owner: \"{owner}\", name: \"{name}\") {{
+                    owner {{
+                        login
+                    }}
+                    name
+                    releases(first: 100) {{
+                      nodes {{
+                        releaseAssets(first: 10) {{
+                          nodes {{
+                            name
+                          }}
+                        }}
+                      }}
+                    }}
+                }}"
+            ));
+        }
+        graphql_query.push('}');
+
+        // Send the query
+        let response: GraphQlResponse = if !gh_ids.is_empty() {
+            apis.gh
+                .graphql(&HashMap::from([("query", graphql_query)]))
+                .await?
         } else {
-            Self::GitHubError(err)
+            GraphQlResponse {
+                data: HashMap::new(),
+                errors: Vec::new(),
+            }
+        };
+
+        errors.extend(response.errors.into_iter().map(|v| {
+            (
+                {
+                    let id = gh_ids[v.path[0]
+                        .strip_prefix('_')
+                        .and_then(|s| s.parse::<usize>().ok())
+                        .expect("Unexpected response data")];
+                    format!("{}/{}", id.0, id.1)
+                },
+                if v.type_ == "NOT_FOUND" {
+                    Error::DoesNotExist
+                } else {
+                    Error::GitHubError(v.message)
+                },
+            )
+        }));
+
+        response
+            .data
+            .into_values()
+            .flatten()
+            .map(|d| {
+                (
+                    (d.owner.login, d.name),
+                    d.releases
+                        .nodes
+                        .into_iter()
+                        .flat_map(|r| r.assets.nodes.into_iter().map(|e| e.name))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let mut success_names = Vec::new();
+
+    for project in cf_projects {
+        if let Some(i) = cf_ids.iter().position(|&id| id == project.id) {
+            cf_ids.swap_remove(i);
+        }
+
+        match curseforge(
+            &project,
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        ) {
+            Ok(_) => success_names.push(project.name),
+            Err(err) => errors.push((format!("{} ({})", project.name, project.id), err)),
         }
     }
-}
-
-/// Check if the repo of `repo_handler` exists, releases mods, and is compatible with the current profile
-///
-/// Returns the repository and the latest compatible asset
-pub async fn github(
-    repo_handler: &RepoHandler<'_>,
-    profile: &Profile,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Result<(Repository, Asset)> {
-    let repo = repo_handler.get().await?;
-    let repo_name = (
-        repo.owner.as_ref().unwrap().login.clone(),
-        repo.name.clone(),
+    errors.extend(
+        cf_ids
+            .iter()
+            .map(|id| (id.to_string(), Error::DoesNotExist)),
     );
 
+    for project in mr_projects {
+        if let Some(i) = mr_ids
+            .iter()
+            .position(|&id| id == project.id || project.slug.eq_ignore_ascii_case(id))
+        {
+            mr_ids.swap_remove(i);
+        }
+
+        match modrinth(
+            &project,
+            profile,
+            perform_checks,
+            check_game_version,
+            check_mod_loader,
+        ) {
+            Ok(_) => success_names.push(project.title),
+            Err(err) => errors.push((format!("{} ({})", project.title, project.id), err)),
+        }
+    }
+    errors.extend(
+        mr_ids
+            .iter()
+            .map(|id| (id.to_string(), Error::DoesNotExist)),
+    );
+
+    for (repo, asset_names) in gh_repos {
+        match github(
+            &repo,
+            profile,
+            Some(&asset_names),
+            check_game_version,
+            check_mod_loader,
+        ) {
+            Ok(_) => success_names.push(format!("{}/{}", repo.0, repo.1)),
+            Err(err) => errors.push((format!("{}/{}", repo.0, repo.1), err)),
+        }
+    }
+
+    Ok((success_names, errors))
+}
+
+/// Check if the repo of `repo_handler` exists, releases mods, and is compatible with `profile`.
+/// If so, add it to the `profile`.
+///
+/// Returns the name of the repository to display to the user
+pub fn github(
+    id: &(impl AsRef<str> + ToString, impl AsRef<str> + ToString),
+    profile: &mut Profile,
+    perform_checks: Option<&[String]>,
+    check_game_version: bool,
+    check_mod_loader: bool,
+) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name == repo.name
-            || ModIdentifier::GitHubRepository(repo_name.clone()) == mod_.identifier
+        mod_.name.eq_ignore_ascii_case(id.1.as_ref())
+            || ModIdentifierRef::GitHubRepository((id.0.as_ref(), id.1.as_ref()))
+                == mod_.identifier.as_ref()
     }) {
         return Err(Error::AlreadyAdded);
     }
 
-    let releases = repo_handler.releases().list().send().await?.items;
-    let mut contains_jar_asset = false;
-
-    // Check if the releases contain a JAR file
-    'outer: for release in &releases {
-        for asset in &release.assets {
-            if asset.name.contains("jar") {
-                contains_jar_asset = true;
-                break 'outer;
-            }
+    if let Some(asset_names) = perform_checks {
+        // Check if jar files are released
+        if !asset_names.iter().any(|name| name.ends_with(".jar")) {
+            return Err(Error::NotAMod);
         }
+
+        // Check if the repo is compatible
+        check::github(
+            asset_names,
+            profile.get_version(check_game_version),
+            profile.get_loader(check_game_version),
+        )
+        .ok_or(Error::Incompatible)?;
     }
 
-    if contains_jar_asset {
-        let asset = mod_downloadable::get_latest_compatible_asset(
-            &releases,
-            &profile.game_version,
-            &profile.mod_loader,
-            should_check_game_version,
-            should_check_mod_loader,
-        )
-        .ok_or(Error::Incompatible)?
-        .0;
-        Ok((repo, asset))
-    } else {
-        Err(Error::NotAMod)
-    }
+    // Add it to the profile
+    profile.mods.push(Mod {
+        name: id.1.as_ref().trim().to_string(),
+        identifier: ModIdentifier::GitHubRepository((id.0.to_string(), id.1.to_string())),
+        check_game_version,
+        check_mod_loader,
+    });
+
+    Ok(())
 }
 
-/// Check if the project of `project_id` exists, is a mod, and is compatible with the current profile
-///
-/// Returns the project and the latest compatible version
-pub async fn modrinth(
-    modrinth: Arc<Ferinth>,
-    project_id: &str,
-    profile: &Profile,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Result<(Project, Version)> {
-    let project = modrinth.get_project(project_id).await?;
+use ferinth::structures::project::{Project, ProjectType};
+
+/// Check if the project of `project_id` has not already been added, is a mod, and is compatible with `profile`.
+/// If so, add it to the `profile`.
+pub fn modrinth(
+    project: &Project,
+    profile: &mut Profile,
+    perform_checks: bool,
+    check_game_version: bool,
+    check_mod_loader: bool,
+) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name == project.title
-            || ModIdentifier::ModrinthProject(project.id.clone()) == mod_.identifier
+        mod_.name.eq_ignore_ascii_case(&project.title)
+            || ModIdentifierRef::ModrinthProject(&project.id) == mod_.identifier.as_ref()
     }) {
         Err(Error::AlreadyAdded)
+
+    // Check if the project is a mod
     } else if project.project_type != ProjectType::Mod {
         Err(Error::NotAMod)
-    } else {
-        let version = mod_downloadable::get_latest_compatible_version(
-            &modrinth.list_versions(&project.id).await?,
-            &profile.game_version,
-            &profile.mod_loader,
-            should_check_game_version,
-            should_check_mod_loader,
+
+    // Check if the project is compatible
+    } else if !perform_checks // Short circuit if the checks should not be performed
+        || (
+            game_version_check(
+                profile.get_version(check_game_version).as_ref(),
+                &project.game_versions,
+            ) && (
+                mod_loader_check(
+                    profile.get_loader(check_mod_loader),
+                    &project.loaders
+                ) || (
+                // Fabric backwards compatibility in Quilt
+                profile.mod_loader == ModLoader::Quilt
+                    && mod_loader_check(Some(ModLoader::Fabric), &project.loaders)
+                )
+            )
         )
-        .ok_or(Error::Incompatible)?
-        .1;
-        Ok((project, version))
+    {
+        // Add it to the profile
+        profile.mods.push(Mod {
+            name: project.title.trim().to_owned(),
+            identifier: ModIdentifier::ModrinthProject(project.id.clone()),
+            check_game_version,
+            check_mod_loader,
+        });
+
+        Ok(())
+    } else {
+        Err(Error::Incompatible)
     }
 }
 
-/// Check if the mod of `project_id` exists, is a mod, and is compatible with the current profile
-///
-/// Returns the mod and the latest compatible file
-pub async fn curseforge(
-    curseforge: Arc<Furse>,
-    project_id: i32,
-    profile: &Profile,
-    should_check_game_version: Option<bool>,
-    should_check_mod_loader: Option<bool>,
-) -> Result<(furse::structures::mod_structs::Mod, File)> {
-    let project = curseforge.get_mod(project_id).await?;
+/// Check if the mod of `project_id` has not already been added, is a mod, and is compatible with `profile`.
+/// If so, add it to the `profile`.
+pub fn curseforge(
+    project: &furse::structures::mod_structs::Mod,
+    profile: &mut Profile,
+    perform_checks: bool,
+    check_game_version: bool,
+    check_mod_loader: bool,
+) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
-        mod_.name == project.name || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
+        mod_.name.eq_ignore_ascii_case(&project.name)
+            || ModIdentifier::CurseForgeProject(project.id) == mod_.identifier
     }) {
-        return Err(Error::AlreadyAdded);
-    }
+        Err(Error::AlreadyAdded)
 
-    if Some(false) == project.allow_mod_distribution {
-        return Err(Error::DistributionDenied);
-    }
+    // Check if it can be downloaded by third-parties
+    } else if Some(false) == project.allow_mod_distribution {
+        Err(Error::DistributionDenied)
 
-    let files = curseforge.get_mod_files(project.id).await?;
-    let mut contains_jar_file = false;
-
-    // Check if the files are JAR files
-    for file in &files {
-        if file.file_name.contains("jar") {
-            contains_jar_file = true;
-            break;
-        }
-    }
-
-    if contains_jar_file {
-        let file = mod_downloadable::get_latest_compatible_file(
-            files,
-            &profile.game_version,
-            &profile.mod_loader,
-            should_check_game_version,
-            should_check_mod_loader,
-        )
-        .ok_or(Error::Incompatible)?
-        .0;
-        Ok((project, file))
-    } else {
+    // Check if the project is a Minecraft mod
+    } else if !project.links.website_url.as_str().contains("mc-mods") {
         Err(Error::NotAMod)
+
+    // Check if the mod is compatible
+    } else if !perform_checks // Short-circuit if checks do not have to be performed
+
+        // Extract game version and loader pairs from the 'latest files',
+        // which generally exist for every supported game version and loader combination
+        || {
+            let version = profile.get_version(check_game_version);
+            let loader = profile.get_loader(check_mod_loader);
+            project
+                .latest_files_indexes
+                .iter()
+                .map(|f| {
+                    (
+                        &f.game_version,
+                        f.mod_loader
+                            .as_ref()
+                            .and_then(|l| ModLoader::from_str(&format!("{:?}", l)).ok()),
+                    )
+                })
+                .any(|p| {
+                    (version.is_none() || version == Some(p.0)) &&
+                    (loader.is_none() || loader == p.1)
+                })
+        }
+    {
+        profile.mods.push(Mod {
+            name: project.name.trim().to_string(),
+            identifier: ModIdentifier::CurseForgeProject(project.id),
+            check_game_version,
+            check_mod_loader,
+        });
+
+        Ok(())
+    } else {
+        Err(Error::Incompatible)
     }
 }
