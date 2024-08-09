@@ -3,7 +3,7 @@ use crate::{version_ext::VersionExt, HOME};
 use ferinth::Ferinth;
 use furse::Furse;
 use reqwest::Client;
-use tokio::fs::{create_dir_all, File};
+use std::{fs::create_dir_all, path::PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
@@ -16,7 +16,7 @@ pub enum Error {
     ReqwestError(#[from] reqwest::Error),
     DownloadError(#[from] super::Error),
     IOError(#[from] std::io::Error),
-    ZipError(#[from] async_zip::error::ZipError),
+    ZipError(#[from] zip::result::ZipError),
     JSONError(#[from] serde_json::error::Error),
 }
 type Result<T> = std::result::Result<T, Error>;
@@ -30,7 +30,7 @@ pub async fn download_curseforge_modpack(
     project_id: i32,
     total: impl FnOnce(usize) + Send,
     update: impl Fn(usize) + Send,
-) -> Result<File> {
+) -> Result<PathBuf> {
     let latest_file: Downloadable = curseforge
         .get_mod_files(project_id)
         .await?
@@ -39,13 +39,13 @@ pub async fn download_curseforge_modpack(
     let cache_dir = HOME.join(".config").join("ferium").join(".cache");
     let modpack_path = cache_dir.join(&latest_file.output);
     if !modpack_path.exists() {
-        create_dir_all(&cache_dir).await?;
+        create_dir_all(&cache_dir)?;
         total(latest_file.length);
         latest_file
             .download(&Client::new(), &cache_dir, update)
             .await?;
     }
-    Ok(File::open(modpack_path).await?)
+    Ok(modpack_path)
 }
 
 /// Download and open the latest version of `project_id`
@@ -57,7 +57,7 @@ pub async fn download_modrinth_modpack(
     project_id: &str,
     total: impl FnOnce(usize) + Send,
     update: impl Fn(usize) + Send,
-) -> Result<File> {
+) -> Result<PathBuf> {
     let version_file: Downloadable = modrinth
         .list_versions(project_id)
         .await?
@@ -67,11 +67,11 @@ pub async fn download_modrinth_modpack(
     let cache_dir = HOME.join(".config").join("ferium").join(".cache");
     let modpack_path = cache_dir.join(&version_file.output);
     if !modpack_path.exists() {
-        create_dir_all(&cache_dir).await?;
+        create_dir_all(&cache_dir)?;
         total(version_file.length);
         version_file
             .download(&Client::new(), &cache_dir, update)
             .await?;
     }
-    Ok(File::open(modpack_path).await?)
+    Ok(modpack_path)
 }

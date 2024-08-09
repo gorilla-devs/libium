@@ -7,10 +7,10 @@ use ferinth::structures::version::VersionFile;
 use furse::structures::file_structs::File;
 use octocrab::models::repos::Asset;
 use reqwest::{Client, Url};
-use std::path::{Path, PathBuf};
-use tokio::{
+use std::{
     fs::{create_dir_all, rename, OpenOptions},
-    io::{AsyncWriteExt, BufWriter},
+    io::{BufWriter, Write},
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -98,7 +98,7 @@ impl Downloadable {
         let out_file_path = output_dir.join(&self.output);
         let temp_file_path = out_file_path.with_extension("part");
         if let Some(up_dir) = out_file_path.parent() {
-            create_dir_all(up_dir).await?;
+            create_dir_all(up_dir)?;
         }
 
         let mut temp_file = BufWriter::with_capacity(
@@ -106,18 +106,17 @@ impl Downloadable {
             OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(&temp_file_path)
-                .await?,
+                .open(&temp_file_path)?,
         );
 
         let mut response = client.get(url).send().await?;
 
         while let Some(chunk) = response.chunk().await? {
-            temp_file.write_all(&chunk).await?;
+            temp_file.write_all(&chunk)?;
             update(chunk.len());
         }
-        temp_file.shutdown().await?;
-        rename(temp_file_path, out_file_path).await?;
+        temp_file.flush()?;
+        rename(temp_file_path, out_file_path)?;
         Ok((size, filename))
     }
 

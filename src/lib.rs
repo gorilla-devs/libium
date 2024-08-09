@@ -10,8 +10,7 @@ pub use add::add;
 pub use scan::scan;
 
 use once_cell::sync::Lazy;
-use std::path::PathBuf;
-use tokio::io::{AsyncReadExt, Result};
+use std::{io::Read, path::PathBuf};
 
 pub static HOME: Lazy<PathBuf> =
     Lazy::new(|| home::home_dir().expect("Could not get user's home directory"));
@@ -35,9 +34,9 @@ pub fn get_minecraft_dir() -> PathBuf {
 /// Read `source` and return the data as a string
 ///
 /// A wrapper for dealing with the read buffer.
-pub async fn read_wrapper(mut source: impl AsyncReadExt + Unpin) -> Result<String> {
+pub fn read_wrapper(mut source: impl Read) -> std::io::Result<String> {
     let mut buffer = String::new();
-    source.read_to_string(&mut buffer).await?;
+    source.read_to_string(&mut buffer)?;
     Ok(buffer)
 }
 

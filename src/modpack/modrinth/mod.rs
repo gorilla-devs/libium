@@ -1,41 +1,27 @@
 pub mod structs;
 
-use async_zip::{error::Result, tokio::write::ZipFileWriter, Compression, ZipEntryBuilder};
 use std::{
-    fs::read_dir,
+    fs::{canonicalize, read_dir, File},
+    io::{copy, Write},
     path::{Path, PathBuf},
 };
-use tokio::fs::{canonicalize, read, File};
-use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
+
+use zip::{write::SimpleFileOptions, ZipWriter};
+use zip_extensions::ZipWriterExtensions;
 
 /// Create a Modrinth modpack at `output` using the provided `metadata` and optional `overrides`
-pub async fn create(
+pub fn create(
     output: &Path,
     metadata: &str,
     overrides: Option<&Path>,
     additional_mods: Option<&Path>,
-) -> Result<File> {
-    let compression = Compression::Deflate;
-    let mut writer = ZipFileWriter::new(File::create(output).await?.compat());
+) -> zip::result::ZipResult<()> {
+    let mut writer = ZipWriter::new(File::create(output)?);
+    let options = SimpleFileOptions::default();
 
     // Add metadata to the zip file
-    writer
-        .write_entry_whole(
-            ZipEntryBuilder::new("modrinth.index.json".into(), compression),
-            metadata.as_bytes(),
-        )
-        .await?;
-
-    // Add the overrides to the zip file
-    if let Some(overrides) = overrides {
-        super::compress_dir(
-            &mut writer,
-            overrides.parent().unwrap(),
-            &PathBuf::from("overrides"),
-            compression,
-        )
-        .await?;
-    }
+    writer.start_file("modrinth.index.json", options)?;
+    writer.write_all(metadata.as_bytes())?;
 
     // Add additional (non-Modrinth) mods to the zip file
     if let Some(path) = additional_mods {
@@ -43,23 +29,22 @@ pub async fn create(
             .flatten()
             .filter(|entry| entry.file_type().map(|e| e.is_file()).unwrap_or(false))
         {
-            let entry = canonicalize(entry.path()).await?;
-            writer
-                .write_entry_whole(
-                    ZipEntryBuilder::new(
-                        PathBuf::from("overrides")
-                            .join("mods")
-                            .with_file_name(entry.file_name().unwrap())
-                            .to_string_lossy()
-                            .as_ref()
-                            .into(),
-                        compression,
-                    ),
-                    &read(entry).await?,
-                )
-                .await?;
+            let entry = canonicalize(entry.path())?;
+            writer.start_file(
+                PathBuf::from("overrides")
+                    .join("mods")
+                    .with_file_name(entry.file_name().unwrap())
+                    .to_string_lossy(),
+                options,
+            )?;
+            copy(&mut File::open(entry)?, &mut writer)?;
         }
     }
 
-    writer.close().await.map(Compat::into_inner)
+    // Add the overrides to the zip file
+    if let Some(overrides) = overrides {
+        writer.create_from_directory(&overrides.to_owned())?;
+    }
+
+    Ok(())
 }

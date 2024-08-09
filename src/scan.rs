@@ -1,9 +1,12 @@
 use ferinth::Ferinth;
 use furse::{cf_fingerprint, Furse};
-use futures_util::TryFutureExt;
+use futures_util::{try_join, TryFutureExt};
 use sha1::{Digest, Sha1};
-use std::{collections::HashMap, fs::read_dir, path::Path};
-use tokio::{fs::read, try_join};
+use std::{
+    collections::HashMap,
+    fs::{read, read_dir},
+    path::Path,
+};
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
@@ -32,14 +35,16 @@ pub async fn scan(
                 .extension()
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("jar"))
         {
-            let bytes = read(&path).await?;
+            let bytes = read(&path)?;
             let cf_hash = cf_fingerprint(&bytes);
 
             if let Some(filename) = path.file_name() {
-                filenames.insert(cf_hash, filename.to_owned());
+                if filenames.insert(cf_hash, filename.to_owned()).is_none() {
+                    // Only add the hashes if this file wasn't already hashed
+                    mr_hashes.push(format!("{:x}", Sha1::digest(&bytes)));
+                    cf_hashes.push(cf_hash);
+                }
             }
-            mr_hashes.push(format!("{:x}", Sha1::digest(&bytes)));
-            cf_hashes.push(cf_hash);
         }
     }
 

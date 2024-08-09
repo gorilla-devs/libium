@@ -1,5 +1,15 @@
 # Changelog for Libium
 
+## `1.30.0`
+### 03.08.2024
+
+- [`gorilla-devs/ferium#422`](https://github.com/gorilla-devs/ferium/issues/422): Fix a crash when identical files are scanned
+- Replace `tokio` IO with `std::io`, and `async_zip` with `zip`
+- Use `zip-extensions` for compressing and extracting to directories
+  - Replace `modpack::extract_zip` `modpack::compress_dir` with re-exports of `zip_extract` and `zip_create_from_directory` from `zip_extensions`
+- Make many functions not `async`
+- Downloading modpacks from `upgrade::modpack_downloadable` no longer returns the file, it returns the path instead
+
 ## `1.29.0`
 ### 11.06.2024
 
