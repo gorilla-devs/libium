@@ -296,7 +296,7 @@ pub fn github(
         check::github(
             asset_names,
             profile.get_version(check_game_version),
-            profile.get_loader(check_game_version),
+            profile.get_loader(check_mod_loader),
         )
         .ok_or(Error::Incompatible)?;
     }
