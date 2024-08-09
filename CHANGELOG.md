@@ -1,7 +1,7 @@
 # Changelog for Libium
 
 ## `1.30.0`
-### 03.08.2024
+### 09.08.2024
 
 - [`gorilla-devs/ferium#422`](https://github.com/gorilla-devs/ferium/issues/422): Fix a crash when identical files are scanned
 - Replace `tokio` IO with `std::io`, and `async_zip` with `zip`
