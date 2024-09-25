@@ -1,13 +1,13 @@
 pub mod structs;
 
-use once_cell::sync::Lazy;
 use std::{
     fs::{create_dir_all, File, OpenOptions},
     io::{Result, Seek, Write},
     path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
-pub static DEFAULT_CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| {
+pub static DEFAULT_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     crate::HOME
         .join(".config")
         .join("ferium")

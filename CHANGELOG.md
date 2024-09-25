@@ -1,5 +1,16 @@
 # Changelog for Libium
 
+## `1.31.0`
+### 
+
+- Switched to `std::sync:LazyLock` and removed the `once_cell` dependency
+- Added `MODRINTH_API`, `GITHUB_API`, and `CURSEFORGE_API` as lazily initialised global variables so that they don't need to be passed around everywhere
+  - Removed `APIs`
+- Changed `Downloadable` into `DownloadFile` and added game version and loader data so that it can be used to perform platform agnostic filtering
+- Made functions in `upgrade::check` platform agnostic
+- Added `ModIdentifier::fetch_version_likes` method to fetch platform agnostic `DownloadFiles` from its platform dependant enum variants
+  - Replaces the `get_compatible_downloadable` function in `upgrade::mod_downloadable`
+
 ## `1.30.0`
 ### 09.08.2024
 

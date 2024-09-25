@@ -1,7 +1,5 @@
-use super::{DistributionDeniedError, Downloadable};
-use crate::{version_ext::VersionExt, HOME};
-use ferinth::Ferinth;
-use furse::Furse;
+use super::{DistributionDeniedError, DownloadFile};
+use crate::{CURSEFORGE_API, HOME, MODRINTH_API};
 use reqwest::Client;
 use std::{fs::create_dir_all, path::PathBuf};
 
@@ -26,12 +24,11 @@ type Result<T> = std::result::Result<T, Error>;
 /// Calls `total` once at the beginning with the file size if it is determined that the file needs to be downloaded.
 /// Calls `update` with the chunk length whenever a chunk is downloaded and written.
 pub async fn download_curseforge_modpack(
-    curseforge: &Furse,
     project_id: i32,
     total: impl FnOnce(usize) + Send,
     update: impl Fn(usize) + Send,
 ) -> Result<PathBuf> {
-    let latest_file: Downloadable = curseforge
+    let latest_file: DownloadFile = CURSEFORGE_API
         .get_mod_files(project_id)
         .await?
         .swap_remove(0)
@@ -53,16 +50,14 @@ pub async fn download_curseforge_modpack(
 /// Calls `total` once at the beginning with the file size when it is determined that the file needs to be downloaded.
 /// Calls `update` with the chunk length whenever a chunk is downloaded and written.
 pub async fn download_modrinth_modpack(
-    modrinth: &Ferinth,
     project_id: &str,
     total: impl FnOnce(usize) + Send,
     update: impl Fn(usize) + Send,
 ) -> Result<PathBuf> {
-    let version_file: Downloadable = modrinth
+    let version_file: DownloadFile = MODRINTH_API
         .list_versions(project_id)
         .await?
         .swap_remove(0)
-        .into_version_file()
         .into();
     let cache_dir = HOME.join(".config").join("ferium").join(".cache");
     let modpack_path = cache_dir.join(&version_file.output);

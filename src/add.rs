@@ -1,7 +1,9 @@
+#![expect(clippy::result_large_err)]
+
 use crate::{
     config::structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
-    upgrade::check::{self, game_version_check, mod_loader_check},
-    APIs,
+    upgrade::{check, DownloadFile},
+    CURSEFORGE_API, GITHUB_API, MODRINTH_API,
 };
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
@@ -89,11 +91,12 @@ pub fn parse_id(id: String) -> ModIdentifier {
     }
 }
 
-/// Classify the `identifiers` into the appropriate platforms, send batch requests to get the necessary information,
-/// check details about the projects, and add them to `profile` if suitable.
+/// Adds mods from `identifiers`, and returns successful mods with their names, and unsuccessful mods with an error
+///
+/// Classifies the `identifiers` into the appropriate platforms, sends batch requests to get the necessary information,
+/// checks details about the projects, and adds them to `profile` if suitable.
 /// Performs checks on the mods to see whether they're compatible with the profile if `perform_checks` is true
 pub async fn add(
-    apis: APIs<'_>,
     profile: &mut Profile,
     identifiers: Vec<ModIdentifier>,
     perform_checks: bool,
@@ -116,7 +119,7 @@ pub async fn add(
     let cf_projects = if !cf_ids.is_empty() {
         cf_ids.sort_unstable();
         cf_ids.dedup();
-        apis.cf.get_mods(cf_ids.clone()).await?
+        CURSEFORGE_API.get_mods(cf_ids.clone()).await?
     } else {
         Vec::new()
     };
@@ -124,7 +127,7 @@ pub async fn add(
     let mr_projects = if !mr_ids.is_empty() {
         mr_ids.sort_unstable();
         mr_ids.dedup();
-        apis.mr
+        MODRINTH_API
             .get_multiple_projects(&mr_ids.iter().map(AsRef::as_ref).collect::<Vec<_>>())
             .await?
     } else {
@@ -157,7 +160,7 @@ pub async fn add(
 
         // Send the query
         let response: GraphQlResponse = if !gh_ids.is_empty() {
-            apis.gh
+            GITHUB_API
                 .graphql(&HashMap::from([("query", graphql_query)]))
                 .await?
         } else {
@@ -293,8 +296,27 @@ pub fn github(
         }
 
         // Check if the repo is compatible
-        check::github(
-            asset_names,
+        check::select_latest(
+            asset_names
+                .iter()
+                .map(|a| DownloadFile {
+                    game_versions: a
+                        .strip_suffix(".jar")
+                        .unwrap_or("")
+                        .split('-')
+                        .map(ToOwned::to_owned)
+                        .collect::<Vec<_>>(),
+                    loaders: a
+                        .strip_suffix(".jar")
+                        .unwrap_or("")
+                        .split('-')
+                        .filter_map(|s| ModLoader::from_str(s).ok())
+                        .collect::<Vec<_>>(),
+                    download_url: "https://example.com".parse().unwrap(),
+                    output: "".into(),
+                    length: 0,
+                })
+                .collect::<Vec<_>>(),
             profile.get_version(check_game_version),
             profile.get_loader(check_mod_loader),
         )
@@ -336,21 +358,19 @@ pub fn modrinth(
 
     // Check if the project is compatible
     } else if !perform_checks // Short circuit if the checks should not be performed
-        || (
-            game_version_check(
-                profile.get_version(check_game_version).as_ref(),
-                &project.game_versions,
-            ) && (
-                mod_loader_check(
-                    profile.get_loader(check_mod_loader),
-                    &project.loaders
-                ) || (
-                // Fabric backwards compatibility in Quilt
-                profile.mod_loader == ModLoader::Quilt
-                    && mod_loader_check(Some(ModLoader::Fabric), &project.loaders)
-                )
-            )
-        )
+        || check::select_latest(
+            vec![DownloadFile {
+                game_versions: project.game_versions.clone(),
+                loaders: project.loaders.iter()
+                    .filter_map(|s| ModLoader::from_str(s).ok())
+                    .collect::<Vec<_>>(),
+                download_url: "https://example.com".parse().unwrap(),
+                output: "".into(),
+                length: 0,
+            }],
+            profile.get_version(check_game_version),
+            profile.get_loader(check_mod_loader),
+        ).is_some()
     {
         // Add it to the profile
         profile.mods.push(Mod {
@@ -395,25 +415,25 @@ pub fn curseforge(
 
         // Extract game version and loader pairs from the 'latest files',
         // which generally exist for every supported game version and loader combination
-        || {
-            let version = profile.get_version(check_game_version);
-            let loader = profile.get_loader(check_mod_loader);
-            project
-                .latest_files_indexes
-                .iter()
-                .map(|f| {
-                    (
-                        &f.game_version,
-                        f.mod_loader
-                            .as_ref()
-                            .and_then(|l| ModLoader::from_str(&format!("{:?}", l)).ok()),
-                    )
-                })
-                .any(|p| {
-                    (version.is_none() || version == Some(p.0)) &&
-                    (loader.is_none() || loader == p.1)
-                })
-        }
+        || check::select_latest(
+                vec![DownloadFile {
+                    game_versions: project
+                        .latest_files_indexes
+                        .iter()
+                        .map(|f| f.game_version.clone())
+                        .collect::<Vec<_>>(),
+                    loaders: project
+                        .latest_files_indexes
+                        .iter()
+                        .filter_map(|l| ModLoader::from_str(&format!("{:?}", l)).ok())
+                        .collect::<Vec<_>>(),
+                    download_url: "https://example.com".parse().unwrap(),
+                    output: "".into(),
+                    length: 0,
+                }],
+                profile.get_version(check_game_version),
+                profile.get_loader(check_mod_loader),
+            ).is_some()
     {
         profile.mods.push(Mod {
             name: project.name.trim().to_string(),

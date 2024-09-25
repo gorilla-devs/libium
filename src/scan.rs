@@ -1,5 +1,4 @@
-use ferinth::Ferinth;
-use furse::{cf_fingerprint, Furse};
+use furse::cf_fingerprint;
 use futures_util::{try_join, TryFutureExt};
 use sha1::{Digest, Sha1};
 use std::{
@@ -7,6 +6,8 @@ use std::{
     fs::{read, read_dir},
     path::Path,
 };
+
+use crate::{CURSEFORGE_API, MODRINTH_API};
 
 type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
@@ -19,8 +20,6 @@ pub enum Error {
 
 /// Scan `dir_path` and return the filename, Modrinth project ID, and CurseForge mod ID for each JAR file
 pub async fn scan(
-    modrinth: &Ferinth,
-    curseforge: &Furse,
     dir_path: impl AsRef<Path>,
     hashing_complete: impl Fn(),
 ) -> Result<Vec<(String, Option<String>, Option<i32>)>> {
@@ -51,10 +50,10 @@ pub async fn scan(
     hashing_complete();
 
     let (mr_results, cf_results) = try_join!(
-        modrinth
+        MODRINTH_API
             .get_versions_from_hashes(mr_hashes.clone())
             .map_err(Error::from),
-        curseforge
+        CURSEFORGE_API
             .get_fingerprint_matches(cf_hashes.clone())
             .map_err(Error::from),
     )?;

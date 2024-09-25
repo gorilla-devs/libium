@@ -2,15 +2,18 @@ pub mod check;
 pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
-use crate::modpack::modrinth::structs::ModpackFile;
-use ferinth::structures::version::VersionFile;
-use furse::structures::file_structs::File;
-use octocrab::models::repos::Asset;
+use crate::{
+    config::structs::ModLoader, modpack::modrinth::structs::ModpackFile, version_ext::VersionExt,
+};
+use ferinth::structures::version::Version as ModrinthVersion;
+use furse::structures::file_structs::File as CurseForgeFile;
+use octocrab::models::repos::Asset as GitHubAsset;
 use reqwest::{Client, Url};
 use std::{
     fs::{create_dir_all, rename, OpenOptions},
     io::{BufWriter, Write},
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -22,7 +25,9 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
-pub struct Downloadable {
+pub struct DownloadFile {
+    pub game_versions: Vec<String>,
+    pub loaders: Vec<ModLoader>,
     /// A URL to download the file from
     pub download_url: Url,
     /// The path of the file relative to the output directory
@@ -35,33 +40,49 @@ pub struct Downloadable {
 
 #[derive(Debug, thiserror::Error)]
 #[error("The developer of this project has denied third party applications from downloading it")]
+/// Contains the mod ID and file ID
 pub struct DistributionDeniedError(pub i32, pub i32);
 
-impl TryFrom<File> for Downloadable {
+impl TryFrom<CurseForgeFile> for DownloadFile {
     type Error = DistributionDeniedError;
-    fn try_from(file: File) -> std::result::Result<Self, Self::Error> {
+    fn try_from(file: CurseForgeFile) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
+            loaders: file
+                .game_versions
+                .iter()
+                .filter_map(|s| ModLoader::from_str(s).ok())
+                .collect::<Vec<_>>(),
             download_url: file
                 .download_url
                 .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
             output: file.file_name.into(),
             length: file.file_length,
+            game_versions: file.game_versions,
         })
     }
 }
 
-impl From<VersionFile> for Downloadable {
-    fn from(file: VersionFile) -> Self {
+impl From<ModrinthVersion> for DownloadFile {
+    fn from(version: ModrinthVersion) -> Self {
         Self {
-            download_url: file.url,
-            output: file.filename.into(),
-            length: file.size,
+            loaders: version
+                .loaders
+                .iter()
+                .filter_map(|s| ModLoader::from_str(s).ok())
+                .collect::<Vec<_>>(),
+            download_url: version.get_version_file().url.clone(),
+            output: version.get_version_file().filename.as_str().into(),
+            length: version.get_version_file().size,
+            game_versions: version.game_versions,
         }
     }
 }
-impl From<ModpackFile> for Downloadable {
+
+impl From<ModpackFile> for DownloadFile {
     fn from(file: ModpackFile) -> Self {
         Self {
+            game_versions: vec![],
+            loaders: vec![],
             download_url: file
                 .downloads
                 .first()
@@ -72,9 +93,25 @@ impl From<ModpackFile> for Downloadable {
         }
     }
 }
-impl From<Asset> for Downloadable {
-    fn from(asset: Asset) -> Self {
+
+impl From<GitHubAsset> for DownloadFile {
+    fn from(asset: GitHubAsset) -> Self {
         Self {
+            game_versions: asset
+                .name
+                .strip_suffix(".jar")
+                .unwrap_or("")
+                .split('-')
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>(),
+            loaders: asset
+                .name
+                .strip_suffix(".jar")
+                .unwrap_or("")
+                .split('-')
+                .filter_map(|s| ModLoader::from_str(s).ok())
+                .collect::<Vec<_>>(),
+
             download_url: asset.browser_download_url,
             output: PathBuf::from("mods").join(asset.name),
             length: asset.size as usize,
@@ -82,7 +119,7 @@ impl From<Asset> for Downloadable {
     }
 }
 
-impl Downloadable {
+impl DownloadFile {
     /// Consumes `self` and downloads the file to the `output_dir`.
     ///
     /// The `update` closure is called with the chunk length whenever a chunk is downloaded and written.
@@ -123,7 +160,7 @@ impl Downloadable {
     pub fn filename(&self) -> String {
         self.output
             .file_name()
-            .unwrap()
+            .unwrap_or_default()
             .to_string_lossy()
             .to_string()
     }

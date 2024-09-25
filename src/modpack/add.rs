@@ -1,9 +1,9 @@
-use crate::config::structs::{Config, ModpackIdentifier};
-use ferinth::{
-    structures::project::{Project, ProjectType},
-    Ferinth,
+use crate::{
+    config::structs::{Config, ModpackIdentifier},
+    CURSEFORGE_API, MODRINTH_API,
 };
-use furse::{structures::mod_structs::Mod, Furse};
+use ferinth::structures::project::{Project, ProjectType};
+use furse::structures::mod_structs::Mod;
 use reqwest::StatusCode;
 
 type Result<T> = std::result::Result<T, Error>;
@@ -52,8 +52,8 @@ impl From<ferinth::Error> for Error {
 /// Check if the project of `project_id` exists and is a modpack
 ///
 /// Returns the project struct
-pub async fn curseforge(curseforge: &Furse, config: &Config, project_id: i32) -> Result<Mod> {
-    let project = curseforge.get_mod(project_id).await?;
+pub async fn curseforge(config: &Config, project_id: i32) -> Result<Mod> {
+    let project = CURSEFORGE_API.get_mod(project_id).await?;
 
     // Check if project has already been added
     if config.modpacks.iter().any(|modpack| {
@@ -73,8 +73,8 @@ pub async fn curseforge(curseforge: &Furse, config: &Config, project_id: i32) ->
 /// Check if the project of `project_id` exists and is a modpack
 ///
 /// Returns the project struct
-pub async fn modrinth(modrinth: &Ferinth, config: &Config, project_id: &str) -> Result<Project> {
-    let project = modrinth.get_project(project_id).await?;
+pub async fn modrinth(config: &Config, project_id: &str) -> Result<Project> {
+    let project = MODRINTH_API.get_project(project_id).await?;
 
     // Check if project has already been added
     if config.modpacks.iter().any(|modpack| {

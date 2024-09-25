@@ -9,11 +9,34 @@ pub mod version_ext;
 pub use add::add;
 pub use scan::scan;
 
-use once_cell::sync::Lazy;
-use std::{io::Read, path::PathBuf};
+use std::{io::Read, path::PathBuf, sync::LazyLock};
 
-pub static HOME: Lazy<PathBuf> =
-    Lazy::new(|| home::home_dir().expect("Could not get user's home directory"));
+pub static GITHUB_API: LazyLock<octocrab::Octocrab> = LazyLock::new(|| {
+    let mut github = octocrab::OctocrabBuilder::new();
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        github = github.personal_token(token);
+    }
+    github.build().expect("Could not build GitHub client")
+});
+
+pub static CURSEFORGE_API: LazyLock<furse::Furse> = LazyLock::new(|| {
+    furse::Furse::new(&std::env::var("CURSEFORGE_API_KEY").unwrap_or(String::from(
+        "$2a$10$sI.yRk4h4R49XYF94IIijOrO4i3W3dAFZ4ssOlNE10GYrDhc2j8K.",
+    )))
+});
+
+pub static MODRINTH_API: LazyLock<ferinth::Ferinth> = LazyLock::new(|| {
+    ferinth::Ferinth::new(
+        "ferium",
+        option_env!("CARGO_PKG_VERSION"),
+        Some("Discord: therookiecoder"),
+        None,
+    )
+    .expect("Could not build Modrinth client") // This should never fail since no `authorisation` token was provided
+});
+
+pub static HOME: LazyLock<PathBuf> =
+    LazyLock::new(|| home::home_dir().expect("Could not get user's home directory"));
 
 /// Get the default Minecraft instance directory based on the current compilation `target_os`.
 /// If the `target_os` doesn't match `"macos"`, `"linux"`, or `"windows"`, this function will not compile.
@@ -38,16 +61,4 @@ pub fn read_wrapper(mut source: impl Read) -> std::io::Result<String> {
     let mut buffer = String::new();
     source.read_to_string(&mut buffer)?;
     Ok(buffer)
-}
-
-pub struct APIs<'a> {
-    pub mr: &'a ferinth::Ferinth,
-    pub cf: &'a furse::Furse,
-    pub gh: &'a octocrab::Octocrab,
-}
-
-impl<'a> APIs<'a> {
-    pub fn new(mr: &'a ferinth::Ferinth, cf: &'a furse::Furse, gh: &'a octocrab::Octocrab) -> Self {
-        Self { mr, cf, gh }
-    }
 }
