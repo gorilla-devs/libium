@@ -3,7 +3,8 @@ pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
 use crate::{
-    config::structs::ModLoader, modpack::modrinth::structs::ModpackFile, version_ext::VersionExt,
+    config::structs::ModLoader, modpack::modrinth::structs::ModpackFile as ModpackModFile,
+    version_ext::VersionExt,
 };
 use ferinth::structures::version::Version as ModrinthVersion;
 use furse::structures::file_structs::File as CurseForgeFile;
@@ -78,8 +79,8 @@ impl From<ModrinthVersion> for DownloadFile {
     }
 }
 
-impl From<ModpackFile> for DownloadFile {
-    fn from(file: ModpackFile) -> Self {
+impl From<ModpackModFile> for DownloadFile {
+    fn from(file: ModpackModFile) -> Self {
         Self {
             game_versions: vec![],
             loaders: vec![],

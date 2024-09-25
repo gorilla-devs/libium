@@ -313,7 +313,7 @@ pub fn github(
                         .filter_map(|s| ModLoader::from_str(s).ok())
                         .collect::<Vec<_>>(),
                     download_url: "https://example.com".parse().unwrap(),
-                    output: "".into(),
+                    output: ".jar".into(),
                     length: 0,
                 })
                 .collect::<Vec<_>>(),
@@ -365,7 +365,7 @@ pub fn modrinth(
                     .filter_map(|s| ModLoader::from_str(s).ok())
                     .collect::<Vec<_>>(),
                 download_url: "https://example.com".parse().unwrap(),
-                output: "".into(),
+                output: ".jar".into(),
                 length: 0,
             }],
             profile.get_version(check_game_version),
@@ -420,15 +420,15 @@ pub fn curseforge(
                     game_versions: project
                         .latest_files_indexes
                         .iter()
-                        .map(|f| f.game_version.clone())
+                        .map(|i| i.game_version.clone())
                         .collect::<Vec<_>>(),
                     loaders: project
                         .latest_files_indexes
                         .iter()
-                        .filter_map(|l| ModLoader::from_str(&format!("{:?}", l)).ok())
+                        .filter_map(|i| i.mod_loader.as_ref().and_then(|l|  ModLoader::from_str(&format!("{:?}", l)).ok()))
                         .collect::<Vec<_>>(),
                     download_url: "https://example.com".parse().unwrap(),
-                    output: "".into(),
+                    output: ".jar".into(),
                     length: 0,
                 }],
                 profile.get_version(check_game_version),

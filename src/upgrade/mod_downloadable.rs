@@ -12,8 +12,6 @@ pub enum Error {
     CurseForgeError(#[from] furse::Error),
     #[error("GitHub: {0:#?}")]
     GitHubError(#[from] octocrab::Error),
-    #[error("No compatible file was found")]
-    NoCompatibleFile,
 }
 type Result<T> = std::result::Result<T, Error>;
 
