@@ -1,5 +1,5 @@
 use super::{DistributionDeniedError, DownloadFile};
-use crate::{CURSEFORGE_API, HOME, MODRINTH_API};
+use crate::{config::structs::ModpackIdentifier, CURSEFORGE_API, HOME, MODRINTH_API};
 use reqwest::Client;
 use std::{fs::create_dir_all, path::PathBuf};
 
@@ -14,59 +14,36 @@ pub enum Error {
     ReqwestError(#[from] reqwest::Error),
     DownloadError(#[from] super::Error),
     IOError(#[from] std::io::Error),
-    ZipError(#[from] zip::result::ZipError),
-    JSONError(#[from] serde_json::error::Error),
 }
 type Result<T> = std::result::Result<T, Error>;
 
-/// Download and open the latest file of `project_id`
-///
-/// Calls `total` once at the beginning with the file size if it is determined that the file needs to be downloaded.
-/// Calls `update` with the chunk length whenever a chunk is downloaded and written.
-pub async fn download_curseforge_modpack(
-    project_id: i32,
-    total: impl FnOnce(usize) + Send,
-    update: impl Fn(usize) + Send,
-) -> Result<PathBuf> {
-    let latest_file: DownloadFile = CURSEFORGE_API
-        .get_mod_files(project_id)
-        .await?
-        .swap_remove(0)
-        .try_into()?;
-    let cache_dir = HOME.join(".config").join("ferium").join(".cache");
-    let modpack_path = cache_dir.join(&latest_file.output);
-    if !modpack_path.exists() {
-        create_dir_all(&cache_dir)?;
-        total(latest_file.length);
-        latest_file
-            .download(&Client::new(), &cache_dir, update)
-            .await?;
-    }
-    Ok(modpack_path)
-}
+impl ModpackIdentifier {
+    pub async fn download_file(
+        &self,
+        total: impl FnOnce(usize) + Send,
+        update: impl Fn(usize) + Send,
+    ) -> Result<PathBuf> {
+        let download_file: DownloadFile = match self {
+            ModpackIdentifier::CurseForgeModpack(id) => CURSEFORGE_API
+                .get_mod_files(*id)
+                .await?
+                .swap_remove(0)
+                .try_into()?,
+            ModpackIdentifier::ModrinthModpack(id) => {
+                MODRINTH_API.list_versions(id).await?.swap_remove(0).into()
+            }
+        };
 
-/// Download and open the latest version of `project_id`
-///
-/// Calls `total` once at the beginning with the file size when it is determined that the file needs to be downloaded.
-/// Calls `update` with the chunk length whenever a chunk is downloaded and written.
-pub async fn download_modrinth_modpack(
-    project_id: &str,
-    total: impl FnOnce(usize) + Send,
-    update: impl Fn(usize) + Send,
-) -> Result<PathBuf> {
-    let version_file: DownloadFile = MODRINTH_API
-        .list_versions(project_id)
-        .await?
-        .swap_remove(0)
-        .into();
-    let cache_dir = HOME.join(".config").join("ferium").join(".cache");
-    let modpack_path = cache_dir.join(&version_file.output);
-    if !modpack_path.exists() {
-        create_dir_all(&cache_dir)?;
-        total(version_file.length);
-        version_file
-            .download(&Client::new(), &cache_dir, update)
-            .await?;
+        let cache_dir = HOME.join(".config").join("ferium").join(".cache");
+        let modpack_path = cache_dir.join(&download_file.output);
+        if !modpack_path.exists() {
+            create_dir_all(&cache_dir)?;
+            total(download_file.length);
+            download_file
+                .download(&Client::new(), &cache_dir, update)
+                .await?;
+        }
+
+        Ok(modpack_path)
     }
-    Ok(modpack_path)
 }
