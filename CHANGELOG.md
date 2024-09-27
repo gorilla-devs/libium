@@ -1,7 +1,23 @@
 # Changelog for Libium
 
+## `1.32.0`
+###
+
+Added filters
+
+- Structs are defined in `config::filter`
+- 6 types: mod loader (prefer and any), game version, minor game version, release channel, and filename regex
+- Removed game version and mod loader from `Profile`
+- Removed `check_mod_loader` and `check_game_version` from `Mod`
+- Added `filters` to `Profile` and `Mod`, added `override_filters` option to `Mod`
+- Added `pin` to `Mod`
+- Rewrote `upgrade::check` to use filters instead
+- The method `Filter::filter` will return indices of the matching files
+- Mod resolution will now fail with detailed error messages, including if any of the filters produced an empty set, or if intersecting the filtered sets failed
+- Added `release_channel` to `DownloadFile`
+
 ## `1.31.0`
-### 
+### Unreleased
 
 - Switched to `std::sync:LazyLock` and removed the `once_cell` dependency
 - Added `MODRINTH_API`, `GITHUB_API`, and `CURSEFORGE_API` as lazily initialised global variables so that they don't need to be passed around everywhere

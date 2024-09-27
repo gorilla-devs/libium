@@ -1,5 +1,8 @@
 use super::{DistributionDeniedError, DownloadFile};
-use crate::{config::structs::ModIdentifier, CURSEFORGE_API, GITHUB_API, MODRINTH_API};
+use crate::{
+    config::structs::ModIdentifier, iter_ext::IterExt as _, CURSEFORGE_API, GITHUB_API,
+    MODRINTH_API,
+};
 use std::cmp::Reverse;
 
 #[derive(Debug, thiserror::Error)]
@@ -29,7 +32,7 @@ impl ModIdentifier {
             ModIdentifier::ModrinthProject(id) => MODRINTH_API
                 .list_versions(id)
                 .await
-                .map(|x| x.into_iter().map(Into::into).collect::<Vec<_>>())
+                .map(|x| x.into_iter().map(Into::into).collect_vec())
                 .map_err(Into::into),
             ModIdentifier::GitHubRepository((owner, repo)) => GITHUB_API
                 .repos(owner, repo)
@@ -42,7 +45,7 @@ impl ModIdentifier {
                         .into_iter()
                         .flat_map(|r| r.assets)
                         .map(Into::into)
-                        .collect::<Vec<_>>()
+                        .collect_vec()
                 })
                 .map_err(Into::into),
         }

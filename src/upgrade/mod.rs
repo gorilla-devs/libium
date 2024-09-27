@@ -3,12 +3,14 @@ pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
 use crate::{
-    config::structs::ModLoader, modpack::modrinth::structs::ModpackFile as ModpackModFile,
+    config::{filters::ReleaseChannel, structs::ModLoader},
+    iter_ext::IterExt as _,
+    modpack::modrinth::structs::ModpackFile as ModpackModFile,
     version_ext::VersionExt,
 };
-use ferinth::structures::version::Version as ModrinthVersion;
-use furse::structures::file_structs::File as CurseForgeFile;
-use octocrab::models::repos::Asset as GitHubAsset;
+use ferinth::structures::version::{Version as MRVersion, VersionType};
+use furse::structures::file_structs::{File as CFFile, FileReleaseType};
+use octocrab::models::repos::Asset as GHAsset;
 use reqwest::{Client, Url};
 use std::{
     fs::{create_dir_all, rename, OpenOptions},
@@ -29,6 +31,7 @@ type Result<T> = std::result::Result<T, Error>;
 pub struct DownloadFile {
     pub game_versions: Vec<String>,
     pub loaders: Vec<ModLoader>,
+    pub channel: ReleaseChannel,
     /// A URL to download the file from
     pub download_url: Url,
     /// The path of the file relative to the output directory
@@ -44,15 +47,20 @@ pub struct DownloadFile {
 /// Contains the mod ID and file ID
 pub struct DistributionDeniedError(pub i32, pub i32);
 
-impl TryFrom<CurseForgeFile> for DownloadFile {
+impl TryFrom<CFFile> for DownloadFile {
     type Error = DistributionDeniedError;
-    fn try_from(file: CurseForgeFile) -> std::result::Result<Self, Self::Error> {
+    fn try_from(file: CFFile) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             loaders: file
                 .game_versions
                 .iter()
                 .filter_map(|s| ModLoader::from_str(s).ok())
-                .collect::<Vec<_>>(),
+                .collect_vec(),
+            channel: match file.release_type {
+                FileReleaseType::Release => ReleaseChannel::Release,
+                FileReleaseType::Beta => ReleaseChannel::Beta,
+                FileReleaseType::Alpha => ReleaseChannel::Alpha,
+            },
             download_url: file
                 .download_url
                 .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
@@ -63,14 +71,19 @@ impl TryFrom<CurseForgeFile> for DownloadFile {
     }
 }
 
-impl From<ModrinthVersion> for DownloadFile {
-    fn from(version: ModrinthVersion) -> Self {
+impl From<MRVersion> for DownloadFile {
+    fn from(version: MRVersion) -> Self {
         Self {
             loaders: version
                 .loaders
                 .iter()
                 .filter_map(|s| ModLoader::from_str(s).ok())
-                .collect::<Vec<_>>(),
+                .collect_vec(),
+            channel: match version.version_type {
+                VersionType::Release => ReleaseChannel::Release,
+                VersionType::Beta => ReleaseChannel::Beta,
+                VersionType::Alpha => ReleaseChannel::Alpha,
+            },
             download_url: version.get_version_file().url.clone(),
             output: version.get_version_file().filename.as_str().into(),
             length: version.get_version_file().size,
@@ -89,14 +102,15 @@ impl From<ModpackModFile> for DownloadFile {
                 .first()
                 .expect("Download URLs not provided")
                 .clone(),
+            channel: ReleaseChannel::Release,
             output: file.path,
             length: file.file_size,
         }
     }
 }
 
-impl From<GitHubAsset> for DownloadFile {
-    fn from(asset: GitHubAsset) -> Self {
+impl From<GHAsset> for DownloadFile {
+    fn from(asset: GHAsset) -> Self {
         Self {
             game_versions: asset
                 .name
@@ -104,14 +118,16 @@ impl From<GitHubAsset> for DownloadFile {
                 .unwrap_or("")
                 .split('-')
                 .map(ToOwned::to_owned)
-                .collect::<Vec<_>>(),
+                .collect_vec(),
             loaders: asset
                 .name
                 .strip_suffix(".jar")
                 .unwrap_or("")
                 .split('-')
                 .filter_map(|s| ModLoader::from_str(s).ok())
-                .collect::<Vec<_>>(),
+                .collect_vec(),
+
+            channel: ReleaseChannel::Release,
 
             download_url: asset.browser_download_url,
             output: PathBuf::from("mods").join(asset.name),

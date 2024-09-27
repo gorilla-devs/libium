@@ -1,7 +1,9 @@
-#![expect(clippy::result_large_err)]
-
 use crate::{
-    config::structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
+    config::{
+        filters::ReleaseChannel,
+        structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
+    },
+    iter_ext::IterExt as _,
     upgrade::{check, DownloadFile},
     CURSEFORGE_API, GITHUB_API, MODRINTH_API,
 };
@@ -18,8 +20,8 @@ pub enum Error {
     DistributionDenied,
     #[error("The project has already been added")]
     AlreadyAdded,
-    #[error("The project is not compatible")]
-    Incompatible,
+    #[error("The project is not compatible because {_0}")]
+    Incompatible(#[from] check::Error),
     #[error("The project does not exist")]
     DoesNotExist,
     #[error("The project is not a mod")]
@@ -82,7 +84,7 @@ pub fn parse_id(id: String) -> ModIdentifier {
     if let Ok(id) = id.parse() {
         ModIdentifier::CurseForgeProject(id)
     } else {
-        let split = id.split('/').collect::<Vec<_>>();
+        let split = id.split('/').collect_vec();
         if split.len() == 2 {
             ModIdentifier::GitHubRepository((split[0].to_owned(), split[1].to_owned()))
         } else {
@@ -100,8 +102,6 @@ pub async fn add(
     profile: &mut Profile,
     identifiers: Vec<ModIdentifier>,
     perform_checks: bool,
-    check_game_version: bool,
-    check_mod_loader: bool,
 ) -> Result<(Vec<String>, Vec<(String, Error)>)> {
     let mut mr_ids = Vec::new();
     let mut cf_ids = Vec::new();
@@ -128,7 +128,7 @@ pub async fn add(
         mr_ids.sort_unstable();
         mr_ids.dedup();
         MODRINTH_API
-            .get_multiple_projects(&mr_ids.iter().map(AsRef::as_ref).collect::<Vec<_>>())
+            .get_multiple_projects(&mr_ids.iter().map(AsRef::as_ref).collect_vec())
             .await?
     } else {
         Vec::new()
@@ -198,10 +198,10 @@ pub async fn add(
                         .nodes
                         .into_iter()
                         .flat_map(|r| r.assets.nodes.into_iter().map(|e| e.name))
-                        .collect::<Vec<_>>(),
+                        .collect_vec(),
                 )
             })
-            .collect::<Vec<_>>()
+            .collect_vec()
     };
 
     let mut success_names = Vec::new();
@@ -211,13 +211,7 @@ pub async fn add(
             cf_ids.swap_remove(i);
         }
 
-        match curseforge(
-            &project,
-            profile,
-            perform_checks,
-            check_game_version,
-            check_mod_loader,
-        ) {
+        match curseforge(&project, profile, perform_checks).await {
             Ok(_) => success_names.push(project.name),
             Err(err) => errors.push((format!("{} ({})", project.name, project.id), err)),
         }
@@ -236,13 +230,7 @@ pub async fn add(
             mr_ids.swap_remove(i);
         }
 
-        match modrinth(
-            &project,
-            profile,
-            perform_checks,
-            check_game_version,
-            check_mod_loader,
-        ) {
+        match modrinth(&project, profile, perform_checks).await {
             Ok(_) => success_names.push(project.title),
             Err(err) => errors.push((format!("{} ({})", project.title, project.id), err)),
         }
@@ -254,13 +242,7 @@ pub async fn add(
     );
 
     for (repo, asset_names) in gh_repos {
-        match github(
-            &repo,
-            profile,
-            Some(&asset_names),
-            check_game_version,
-            check_mod_loader,
-        ) {
+        match github(&repo, profile, Some(&asset_names)).await {
             Ok(_) => success_names.push(format!("{}/{}", repo.0, repo.1)),
             Err(err) => errors.push((format!("{}/{}", repo.0, repo.1), err)),
         }
@@ -273,12 +255,10 @@ pub async fn add(
 /// If so, add it to the `profile`.
 ///
 /// Returns the name of the repository to display to the user
-pub fn github(
+pub async fn github(
     id: &(impl AsRef<str> + ToString, impl AsRef<str> + ToString),
     profile: &mut Profile,
     perform_checks: Option<&[String]>,
-    check_game_version: bool,
-    check_mod_loader: bool,
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -305,30 +285,31 @@ pub fn github(
                         .unwrap_or("")
                         .split('-')
                         .map(ToOwned::to_owned)
-                        .collect::<Vec<_>>(),
+                        .collect_vec(),
                     loaders: a
                         .strip_suffix(".jar")
                         .unwrap_or("")
                         .split('-')
                         .filter_map(|s| ModLoader::from_str(s).ok())
-                        .collect::<Vec<_>>(),
+                        .collect_vec(),
+                    channel: ReleaseChannel::Alpha,
                     download_url: "https://example.com".parse().unwrap(),
                     output: ".jar".into(),
                     length: 0,
                 })
-                .collect::<Vec<_>>(),
-            profile.get_version(check_game_version),
-            profile.get_loader(check_mod_loader),
+                .collect_vec(),
+            &profile.filters,
         )
-        .ok_or(Error::Incompatible)?;
+        .await?;
     }
 
     // Add it to the profile
     profile.mods.push(Mod {
         name: id.1.as_ref().trim().to_string(),
         identifier: ModIdentifier::GitHubRepository((id.0.to_string(), id.1.to_string())),
-        check_game_version,
-        check_mod_loader,
+        pin: None,
+        override_filters: false,
+        filters: vec![],
     });
 
     Ok(())
@@ -338,12 +319,10 @@ use ferinth::structures::project::{Project, ProjectType};
 
 /// Check if the project of `project_id` has not already been added, is a mod, and is compatible with `profile`.
 /// If so, add it to the `profile`.
-pub fn modrinth(
+pub async fn modrinth(
     project: &Project,
     profile: &mut Profile,
     perform_checks: bool,
-    check_game_version: bool,
-    check_mod_loader: bool,
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -357,43 +336,43 @@ pub fn modrinth(
         Err(Error::NotAMod)
 
     // Check if the project is compatible
-    } else if !perform_checks // Short circuit if the checks should not be performed
-        || check::select_latest(
-            vec![DownloadFile {
-                game_versions: project.game_versions.clone(),
-                loaders: project.loaders.iter()
-                    .filter_map(|s| ModLoader::from_str(s).ok())
-                    .collect::<Vec<_>>(),
-                download_url: "https://example.com".parse().unwrap(),
-                output: ".jar".into(),
-                length: 0,
-            }],
-            profile.get_version(check_game_version),
-            profile.get_loader(check_mod_loader),
-        ).is_some()
-    {
+    } else {
+        if perform_checks {
+            check::select_latest(
+                vec![DownloadFile {
+                    game_versions: project.game_versions.clone(),
+                    loaders: project
+                        .loaders
+                        .iter()
+                        .filter_map(|s| ModLoader::from_str(s).ok())
+                        .collect_vec(),
+                    channel: ReleaseChannel::Release,
+                    download_url: "https://example.com".parse().unwrap(),
+                    output: ".jar".into(),
+                    length: 0,
+                }],
+                &profile.filters,
+            )
+            .await?;
+        }
         // Add it to the profile
         profile.mods.push(Mod {
             name: project.title.trim().to_owned(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
-            check_game_version,
-            check_mod_loader,
+            pin: None,
+            override_filters: false,
+            filters: vec![],
         });
-
         Ok(())
-    } else {
-        Err(Error::Incompatible)
     }
 }
 
 /// Check if the mod of `project_id` has not already been added, is a mod, and is compatible with `profile`.
 /// If so, add it to the `profile`.
-pub fn curseforge(
+pub async fn curseforge(
     project: &furse::structures::mod_structs::Mod,
     profile: &mut Profile,
     perform_checks: bool,
-    check_game_version: bool,
-    check_mod_loader: bool,
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -411,39 +390,41 @@ pub fn curseforge(
         Err(Error::NotAMod)
 
     // Check if the mod is compatible
-    } else if !perform_checks // Short-circuit if checks do not have to be performed
-
-        // Extract game version and loader pairs from the 'latest files',
-        // which generally exist for every supported game version and loader combination
-        || check::select_latest(
+    } else {
+        if perform_checks {
+            check::select_latest(
                 vec![DownloadFile {
                     game_versions: project
                         .latest_files_indexes
                         .iter()
                         .map(|i| i.game_version.clone())
-                        .collect::<Vec<_>>(),
+                        .collect_vec(),
                     loaders: project
                         .latest_files_indexes
                         .iter()
-                        .filter_map(|i| i.mod_loader.as_ref().and_then(|l|  ModLoader::from_str(&format!("{:?}", l)).ok()))
-                        .collect::<Vec<_>>(),
+                        .filter_map(|i| {
+                            i.mod_loader
+                                .as_ref()
+                                .and_then(|l| ModLoader::from_str(&format!("{:?}", l)).ok())
+                        })
+                        .collect_vec(),
+                    channel: ReleaseChannel::Release,
                     download_url: "https://example.com".parse().unwrap(),
                     output: ".jar".into(),
                     length: 0,
                 }],
-                profile.get_version(check_game_version),
-                profile.get_loader(check_mod_loader),
-            ).is_some()
-    {
+                &profile.filters,
+            )
+            .await?;
+        }
         profile.mods.push(Mod {
             name: project.name.trim().to_string(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
-            check_game_version,
-            check_mod_loader,
+            pin: None,
+            override_filters: false,
+            filters: vec![],
         });
 
         Ok(())
-    } else {
-        Err(Error::Incompatible)
     }
 }

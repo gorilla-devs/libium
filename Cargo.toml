@@ -1,6 +1,6 @@
 [package]
 name = "libium"
-version = "1.30.0"
+version = "1.32.0"
 edition = "2021"
 authors = [
     "Ilesh Thiada (theRookieCoder) <ileshkt@gmail.com>",
@@ -33,6 +33,7 @@ octocrab = { version = "0.40", default-features = false, features = [
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
 ] }
+derive_more = { version = "1.0", features = ["display"] }
 serde = { version = "1.0", features = ["derive"] }
 clap = { version = "4.5", features = ["derive"] }
 url = { version = "2.5", features = ["serde"] }
@@ -42,6 +43,7 @@ serde_json = "1.0"
 dialoguer = "0.11"
 thiserror = "1.0"
 ferinth = "2.11"
+regex = "1.10"
 furse = "1.5"
 sha1 = "0.10"
 home = "0.5"

@@ -1,48 +1,151 @@
-use crate::config::structs::ModLoader;
-
 use super::DownloadFile;
+use crate::{
+    config::filters::{Filter, ReleaseChannel},
+    iter_ext::IterExt,
+    MODRINTH_API,
+};
+use ferinth::structures::tag::GameVersionType;
+use regex::Regex;
+use std::{collections::HashSet, sync::OnceLock};
 
-pub(crate) fn game_version_check(
-    game_version_to_check: Option<&impl AsRef<str>>,
-    versions: &[impl AsRef<str>],
-) -> bool {
-    game_version_to_check
-        .map(|version| {
-            versions
+static VERSION_GROUPS: OnceLock<Vec<Vec<String>>> = OnceLock::new();
+
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+pub enum Error {
+    VersionGrouping(#[from] ferinth::Error),
+    FilenameRegex(#[from] regex::Error),
+    #[error("The following filter(s) were empty")]
+    FilterEmpty(Vec<String>),
+    #[error("Failed to find a compatible combination")]
+    IntersectFailure,
+}
+pub type Result<T> = std::result::Result<T, Error>;
+
+async fn get_version_groups() -> Result<&'static Vec<Vec<String>>> {
+    if let Some(v) = VERSION_GROUPS.get() {
+        Ok(v)
+    } else {
+        let versions = MODRINTH_API.list_game_versions().await?;
+        let mut v = vec![vec![]];
+        for version in versions {
+            if version.version_type == GameVersionType::Release {
+                v.last_mut().unwrap().push(version.version);
+                if version.major {
+                    v.push(vec![]);
+                }
+            }
+        }
+
+        let _ = VERSION_GROUPS.set(v);
+        Ok(dbg!(VERSION_GROUPS.get().unwrap()))
+    }
+}
+
+impl Filter {
+    pub async fn filter(&self, download_files: &[DownloadFile]) -> Result<HashSet<usize>> {
+        Ok(match self {
+            Filter::ModLoaderPrefer(loaders) => loaders
                 .iter()
-                .any(|v| v.as_ref().trim_start_matches("mc") == version.as_ref())
+                .map(|l| {
+                    download_files
+                        .iter()
+                        .positions(|f| f.loaders.contains(l))
+                        .collect_hashset()
+                })
+                .find(|v| !v.is_empty())
+                .unwrap_or_default(),
+
+            Filter::ModLoaderAny(loaders) => download_files
+                .iter()
+                .positions(|f| loaders.iter().any(|l| f.loaders.contains(l)))
+                .collect_hashset(),
+
+            Filter::GameVersion(versions) => download_files
+                .iter()
+                .positions(|f| {
+                    versions.iter().any(|vc| {
+                        f.game_versions
+                            .iter()
+                            .any(|vi| vi.trim_start_matches("mc") == vc)
+                    })
+                })
+                .collect_hashset(),
+
+            Filter::GameVersionMinor(versions) => {
+                let mut final_versions = vec![];
+                for group in get_version_groups().await? {
+                    if group.iter().any(|v| versions.contains(v)) {
+                        final_versions.extend(group.clone());
+                    }
+                }
+
+                download_files
+                    .iter()
+                    .positions(|f| {
+                        final_versions.iter().any(|vc| {
+                            f.game_versions
+                                .iter()
+                                .any(|vi| vi.trim_start_matches("mc") == vc)
+                        })
+                    })
+                    .collect_hashset()
+            }
+
+            Filter::ReleaseChannel(channel) => download_files
+                .iter()
+                .positions(|f| match channel {
+                    ReleaseChannel::Alpha => true,
+                    ReleaseChannel::Beta => {
+                        f.channel == ReleaseChannel::Beta || f.channel == ReleaseChannel::Release
+                    }
+                    ReleaseChannel::Release => f.channel == ReleaseChannel::Release,
+                })
+                .collect_hashset(),
+            Filter::Filename(regex) => {
+                let regex = Regex::new(regex)?;
+                download_files
+                    .iter()
+                    .positions(|f| regex.is_match(&f.filename()))
+                    .collect_hashset()
+            }
         })
-        // assume test passed if mod loader check is disabled
-        .unwrap_or(true)
+    }
 }
 
-pub(crate) fn mod_loader_check(
-    mod_loader_to_check: Option<ModLoader>,
-    loaders: &[ModLoader],
-) -> bool {
-    mod_loader_to_check
-        .map(|loader| loaders.contains(&loader))
-        // assume test passed if mod loader check is disabled
-        .unwrap_or(true)
-}
-
-fn is_jar_file(asset_name: impl AsRef<str>) -> bool {
-    asset_name.as_ref().ends_with(".jar")
-}
-
-fn is_not_source(asset_name: impl AsRef<str>) -> bool {
-    !asset_name.as_ref().contains("source")
-}
-
-pub fn select_latest(
+/// Assumes that the provided `download_files` are sorted in chronological order
+pub async fn select_latest(
     download_files: Vec<DownloadFile>,
-    game_version_to_check: Option<impl AsRef<str>>,
-    mod_loader_to_check: Option<ModLoader>,
-) -> Option<DownloadFile> {
-    download_files.into_iter().find(|file| {
-        is_jar_file(file.filename())
-            && is_not_source(file.filename())
-            && mod_loader_check(mod_loader_to_check, &file.loaders)
-            && game_version_check(game_version_to_check.as_ref(), &file.game_versions)
-    })
+    filters: &[Filter],
+) -> Result<DownloadFile> {
+    let mut filter_results = vec![];
+
+    for filter in filters {
+        filter_results.push((filter, filter.filter(&download_files).await?));
+    }
+
+    let empty_filtrations = filter_results
+        .iter()
+        .filter_map(|(name, indices)| if indices.is_empty() { Some(name) } else { None })
+        .collect_vec();
+    if !empty_filtrations.is_empty() {
+        return Err(Error::FilterEmpty(
+            empty_filtrations
+                .iter()
+                .map(ToString::to_string)
+                .collect_vec(),
+        ));
+    }
+
+    let final_index = filter_results
+        .into_iter()
+        .map(|(_, set)| set)
+        .fold(HashSet::new(), |set_a, set_b| {
+            set_a.intersection(&set_b).copied().collect_hashset()
+        })
+        .into_iter()
+        .min()
+        .ok_or(Error::IntersectFailure)?;
+
+    Ok(download_files[final_index].clone())
 }

@@ -1,3 +1,5 @@
+use super::filters::Filter;
+use derive_more::derive::Display;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, str::FromStr};
 
@@ -22,7 +24,7 @@ pub struct Config {
     pub modpacks: Vec<Modpack>,
 }
 
-fn is_zero(n: &usize) -> bool {
+const fn is_zero(n: &usize) -> bool {
     *n == 0
 }
 
@@ -46,56 +48,38 @@ pub struct Profile {
     pub name: String,
     /// The directory to download mod files to
     pub output_dir: PathBuf,
+
     /// Only download mod files compatible with this Minecraft version
-    pub game_version: String,
+    #[serde(skip_serializing)]
+    pub game_version: Option<String>,
     /// Only download mod files compatible with this mod loader
-    pub mod_loader: ModLoader,
+    #[serde(skip_serializing)]
+    pub mod_loader: Option<ModLoader>,
+
+    pub filters: Vec<Filter>,
+
     pub mods: Vec<Mod>,
-}
-
-impl Profile {
-    // Return the profile's `game_version` in `Some` if `check_game_version` is true
-    pub fn get_version(&self, check_game_version: bool) -> Option<&str> {
-        if check_game_version {
-            Some(&self.game_version)
-        } else {
-            None
-        }
-    }
-
-    // Return the profile's `mod_loader` in a `Some` only if `check_mod_loader` is true
-    pub fn get_loader(&self, check_mod_loader: bool) -> Option<ModLoader> {
-        if check_mod_loader {
-            Some(self.mod_loader)
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Mod {
     pub name: String,
-    /// The project ID of the mod
     pub identifier: ModIdentifier,
 
-    /// Whether to check for game version compatibility
-    #[serde(skip_serializing_if = "is_true")]
-    #[serde(default = "get_true")]
-    pub check_game_version: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pin: Option<String>,
 
-    /// Whether to check for mod loader compatibility
-    #[serde(skip_serializing_if = "is_true")]
-    #[serde(default = "get_true")]
-    pub check_mod_loader: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
+    pub override_filters: bool,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
+    pub filters: Vec<Mod>,
 }
 
-fn is_true(b: &bool) -> bool {
-    *b
-}
-
-fn get_true() -> bool {
-    true
+const fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -122,7 +106,7 @@ impl ModIdentifier {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Deserialize, Serialize, Debug, Display, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum ModLoader {
     Quilt,
     Fabric,
