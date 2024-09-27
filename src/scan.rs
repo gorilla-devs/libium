@@ -1,4 +1,4 @@
-use furse::cf_fingerprint;
+use crate::{CURSEFORGE_API, MODRINTH_API};
 use futures_util::{try_join, TryFutureExt};
 use sha1::{Digest, Sha1};
 use std::{
@@ -7,9 +7,6 @@ use std::{
     path::Path,
 };
 
-use crate::{CURSEFORGE_API, MODRINTH_API};
-
-type Result<T> = std::result::Result<T, Error>;
 #[derive(thiserror::Error, Debug)]
 #[error(transparent)]
 pub enum Error {
@@ -17,8 +14,11 @@ pub enum Error {
     ModrinthError(#[from] ferinth::Error),
     CurseForgeError(#[from] furse::Error),
 }
+type Result<T> = std::result::Result<T, Error>;
 
-/// Scan `dir_path` and return the filename, Modrinth project ID, and CurseForge mod ID for each JAR file
+/// Scans `dir_path` and return the filename, Modrinth project ID, and CurseForge mod ID for each JAR file
+///
+/// Calls `hashing_complete` after reading and hashing files is done.
 pub async fn scan(
     dir_path: impl AsRef<Path>,
     hashing_complete: impl Fn(),
@@ -35,12 +35,14 @@ pub async fn scan(
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("jar"))
         {
             let bytes = read(&path)?;
-            let cf_hash = cf_fingerprint(&bytes);
+
+            let mr_hash = format!("{:X}", Sha1::digest(&bytes));
+            let cf_hash = furse::cf_fingerprint(&bytes);
 
             if let Some(filename) = path.file_name() {
+                // Only add the hashes if this file wasn't already hashed
                 if filenames.insert(cf_hash, filename.to_owned()).is_none() {
-                    // Only add the hashes if this file wasn't already hashed
-                    mr_hashes.push(format!("{:x}", Sha1::digest(&bytes)));
+                    mr_hashes.push(mr_hash);
                     cf_hashes.push(cf_hash);
                 }
             }
@@ -69,17 +71,17 @@ pub async fn scan(
     );
 
     Ok(mr_hashes
-        .into_iter()
-        .zip(cf_hashes)
+        .iter()
+        .zip(&cf_hashes)
         .map(|(mr, cf)| {
             (
                 filenames
-                    .remove(&cf)
+                    .remove(cf)
                     .expect("Missing filename in hashmap")
                     .to_string_lossy()
                     .into_owned(),
-                mr_results.remove(&mr),
-                cf_results.remove(&cf),
+                mr_results.remove(mr),
+                cf_results.remove(cf),
             )
         })
         .collect())

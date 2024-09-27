@@ -10,7 +10,7 @@ pub mod version_ext;
 pub use add::add;
 pub use scan::scan;
 
-use std::{io::Read, path::PathBuf, sync::LazyLock};
+use std::{path::PathBuf, sync::LazyLock};
 
 pub static GITHUB_API: LazyLock<octocrab::Octocrab> = LazyLock::new(|| {
     let mut github = octocrab::OctocrabBuilder::new();
@@ -29,7 +29,8 @@ pub static CURSEFORGE_API: LazyLock<furse::Furse> = LazyLock::new(|| {
 pub static MODRINTH_API: LazyLock<ferinth::Ferinth> = LazyLock::new(|| {
     ferinth::Ferinth::new(
         "ferium",
-        option_env!("CARGO_PKG_VERSION"),
+        // TODO: option_env!("CARGO_PKG_VERSION"),
+        None,
         Some("Discord: therookiecoder"),
         None,
     )
@@ -39,7 +40,8 @@ pub static MODRINTH_API: LazyLock<ferinth::Ferinth> = LazyLock::new(|| {
 pub static HOME: LazyLock<PathBuf> =
     LazyLock::new(|| home::home_dir().expect("Could not get user's home directory"));
 
-/// Get the default Minecraft instance directory based on the current compilation `target_os`.
+/// Gets the default Minecraft instance directory based on the current compilation `target_os`
+///
 /// If the `target_os` doesn't match `"macos"`, `"linux"`, or `"windows"`, this function will not compile.
 pub fn get_minecraft_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
@@ -58,7 +60,7 @@ pub fn get_minecraft_dir() -> PathBuf {
 /// Read `source` and return the data as a string
 ///
 /// A wrapper for dealing with the read buffer.
-pub fn read_wrapper(mut source: impl Read) -> std::io::Result<String> {
+pub fn read_wrapper(mut source: impl std::io::Read) -> std::io::Result<String> {
     let mut buffer = String::new();
     source.read_to_string(&mut buffer)?;
     Ok(buffer)

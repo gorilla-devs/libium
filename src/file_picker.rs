@@ -5,7 +5,7 @@ use std::{
 };
 
 #[cfg(feature = "gui")]
-/// Use the system file picker to pick a file, with a `default` path
+/// Uses the system file picker to pick a file, with a `default` path
 fn show_folder_picker(default: impl AsRef<Path>, prompt: impl Into<String>) -> Option<PathBuf> {
     rfd::FileDialog::new()
         .set_can_create_directories(true)
@@ -15,7 +15,7 @@ fn show_folder_picker(default: impl AsRef<Path>, prompt: impl Into<String>) -> O
 }
 
 #[cfg(not(feature = "gui"))]
-/// Use a terminal input to pick a file, with a `default` path
+/// Uses a terminal input to pick a file, with a `default` path
 fn show_folder_picker(default: impl AsRef<Path>, prompt: impl Into<String>) -> Option<PathBuf> {
     dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
         .default(default.as_ref().display().to_string())
@@ -26,7 +26,7 @@ fn show_folder_picker(default: impl AsRef<Path>, prompt: impl Into<String>) -> O
         .map(Into::into)
 }
 
-/// Pick a folder using the terminal or system file picker (depending on the feature flag `gui`)
+/// Picks a folder using the terminal or system file picker (depending on the feature flag `gui`)
 ///
 /// The `default` path is shown/opened at first and the `name` is what folder the user is supposed to be picking (e.g. output directory)
 pub fn pick_folder(
@@ -35,8 +35,8 @@ pub fn pick_folder(
     name: impl AsRef<str>,
 ) -> Result<Option<PathBuf>> {
     show_folder_picker(default, prompt)
-        .map(|input| {
-            let path = input
+        .map(|raw_in| {
+            let path = raw_in
                 .components()
                 .map(|c| {
                     if c.as_os_str() == "~" {

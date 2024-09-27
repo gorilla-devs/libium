@@ -5,6 +5,7 @@ pub trait IterExt<T> {
     fn collect_hashset(self) -> HashSet<T>
     where
         T: Eq + std::hash::Hash;
+    /// Returns the indices of elements where `predicate` returns true
     fn positions(self, predicate: impl Fn(T) -> bool) -> impl Iterator<Item = usize>;
 }
 
@@ -27,6 +28,7 @@ impl<T, I: Iterator<Item = T>> IterExt<T> for I {
 }
 
 pub trait DisplayStrings {
+    /// Delimits elements of `self` with a comma and returns a single string
     fn display(&self) -> String;
 }
 
