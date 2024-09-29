@@ -36,7 +36,7 @@ pub async fn scan(
         {
             let bytes = read(&path)?;
 
-            let mr_hash = format!("{:X}", Sha1::digest(&bytes));
+            let mr_hash = format!("{:x}", Sha1::digest(&bytes));
             let cf_hash = furse::cf_fingerprint(&bytes);
 
             if let Some(filename) = path.file_name() {

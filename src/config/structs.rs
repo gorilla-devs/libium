@@ -49,6 +49,8 @@ pub struct Profile {
     /// The directory to download mod files to
     pub output_dir: PathBuf,
 
+    // There will be no filters when reading a v4 config
+    #[serde(default)]
     pub filters: Vec<Filter>,
 
     pub mods: Vec<Mod>,
@@ -61,26 +63,39 @@ pub struct Profile {
 }
 
 impl Profile {
+    /// A simple contructor that automatically deals with converting to filters
+    pub fn new(
+        name: String,
+        output_dir: PathBuf,
+        game_versions: Vec<String>,
+        mod_loader: ModLoader,
+    ) -> Self {
+        Self {
+            name,
+            output_dir,
+            filters: vec![
+                Filter::ModLoaderPrefer(match mod_loader {
+                    ModLoader::Quilt => vec![ModLoader::Quilt, ModLoader::Fabric],
+                    _ => vec![mod_loader],
+                }),
+                Filter::GameVersionStrict(game_versions),
+            ],
+            mods: vec![],
+            game_version: None,
+            mod_loader: None,
+        }
+    }
+
     /// Convert the v4 profile's `game_version` and `mod_loader` fields into filters
     pub(crate) fn backwards_compat(&mut self) {
-        if let Some(version) = self.game_version.take() {
-            // If it doesn't already contain game version filters
-            if !self.filters.iter().any(|f| {
-                f == &Filter::GameVersionMinor(vec![]) || f == &Filter::GameVersionStrict(vec![])
-            }) {
-                self.filters.push(Filter::GameVersionStrict(vec![version]));
-            }
-        }
-        if let Some(loader) = self.mod_loader.take() {
-            // If it doesn't already contain mod loader filters
-            if !self.filters.iter().any(|f| {
-                f == &Filter::ModLoaderAny(vec![]) || f == &Filter::ModLoaderPrefer(vec![])
-            }) {
-                self.filters.push(Filter::ModLoaderPrefer(match loader {
+        if let (Some(version), Some(loader)) = (self.game_version.take(), self.mod_loader.take()) {
+            self.filters = vec![
+                Filter::ModLoaderPrefer(match loader {
                     ModLoader::Quilt => vec![ModLoader::Quilt, ModLoader::Fabric],
                     _ => vec![loader],
-                }))
-            }
+                }),
+                Filter::GameVersionStrict(vec![version]),
+            ];
         }
     }
 }

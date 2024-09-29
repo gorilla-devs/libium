@@ -137,14 +137,21 @@ pub async fn select_latest(
         ));
     }
 
-    let final_index = filter_results
-        .into_iter()
-        .map(|(_, set)| set)
-        .fold(HashSet::new(), |set_a, set_b| {
-            set_a.intersection(&set_b).copied().collect_hashset()
+    // Get only the indices of the filtrations
+    let mut index_sets = filter_results.into_iter().map(|(_, set)| set);
+
+    // Intersect all the index_sets by folding the HashSet::intersection method
+    // Ref: https://www.reddit.com/r/rust/comments/5v35l6/intersection_of_more_than_two_sets
+    let final_index = index_sets
+        .next()
+        .and_then(|set_1| {
+            index_sets
+                .fold(set_1, |set_a, set_b| {
+                    set_a.intersection(&set_b).copied().collect_hashset()
+                })
+                .into_iter()
+                .min()
         })
-        .into_iter()
-        .min()
         .ok_or(Error::IntersectFailure)?;
 
     Ok(download_files[final_index].clone())
