@@ -31,7 +31,6 @@ const fn is_zero(n: &usize) -> bool {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Modpack {
     pub name: String,
-    /// The Minecraft instance directory to install to
     pub output_dir: PathBuf,
     pub install_overrides: bool,
     pub identifier: ModpackIdentifier,
@@ -46,19 +45,44 @@ pub enum ModpackIdentifier {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Profile {
     pub name: String,
+
     /// The directory to download mod files to
     pub output_dir: PathBuf,
-
-    /// Only download mod files compatible with this Minecraft version
-    #[serde(skip_serializing)]
-    pub game_version: Option<String>,
-    /// Only download mod files compatible with this mod loader
-    #[serde(skip_serializing)]
-    pub mod_loader: Option<ModLoader>,
 
     pub filters: Vec<Filter>,
 
     pub mods: Vec<Mod>,
+
+    // Kept for backwards compatibility reasons (i.e. migrating from a v4 config)
+    #[serde(skip_serializing)]
+    game_version: Option<String>,
+    #[serde(skip_serializing)]
+    mod_loader: Option<ModLoader>,
+}
+
+impl Profile {
+    /// Convert the v4 profile's `game_version` and `mod_loader` fields into filters
+    pub(crate) fn backwards_compat(&mut self) {
+        if let Some(version) = self.game_version.take() {
+            // If it doesn't already contain game version filters
+            if !self.filters.iter().any(|f| {
+                f == &Filter::GameVersionMinor(vec![]) || f == &Filter::GameVersionStrict(vec![])
+            }) {
+                self.filters.push(Filter::GameVersionStrict(vec![version]));
+            }
+        }
+        if let Some(loader) = self.mod_loader.take() {
+            // If it doesn't already contain mod loader filters
+            if !self.filters.iter().any(|f| {
+                f == &Filter::ModLoaderAny(vec![]) || f == &Filter::ModLoaderPrefer(vec![])
+            }) {
+                self.filters.push(Filter::ModLoaderPrefer(match loader {
+                    ModLoader::Quilt => vec![ModLoader::Quilt, ModLoader::Fabric],
+                    _ => vec![loader],
+                }))
+            }
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -66,16 +90,19 @@ pub struct Mod {
     pub name: String,
     pub identifier: ModIdentifier,
 
+    /// The specific version of the mod to download
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pin: Option<String>,
 
-    #[serde(skip_serializing_if = "is_false")]
-    #[serde(default)]
-    pub override_filters: bool,
-
+    /// Custom filters that apply only for this mod
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     pub filters: Vec<Mod>,
+
+    /// Whether the filters specified above replace or apply with the profile's filters
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
+    pub override_filters: bool,
 }
 
 const fn is_false(b: &bool) -> bool {

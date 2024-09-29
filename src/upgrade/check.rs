@@ -22,7 +22,7 @@ pub enum Error {
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
-async fn get_version_groups() -> Result<&'static Vec<Vec<String>>> {
+pub async fn get_version_groups() -> Result<&'static Vec<Vec<String>>> {
     if let Some(v) = VERSION_GROUPS.get() {
         Ok(v)
     } else {
@@ -61,7 +61,7 @@ impl Filter {
                 .positions(|f| loaders.iter().any(|l| f.loaders.contains(l)))
                 .collect_hashset(),
 
-            Filter::GameVersion(versions) => download_files
+            Filter::GameVersionStrict(versions) => download_files
                 .iter()
                 .positions(|f| {
                     versions.iter().any(|vc| {

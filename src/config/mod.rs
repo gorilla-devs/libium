@@ -24,13 +24,14 @@ fn open_config_file(path: &Path) -> Result<File> {
         .open(path)
 }
 
-/// Open the config file at `path`.
+/// Open the config file at `path`
+///
 /// If it doesn't exist, a config file with an empty config will be created and opened.
 pub fn get_file(path: &Path) -> Result<File> {
     if path.exists() {
         open_config_file(path)
     } else {
-        create_dir_all(path.parent().unwrap())?;
+        create_dir_all(path.parent().expect("Invalid config directory"))?;
         let mut file = open_config_file(path)?;
         write_file(&mut file, &structs::Config::default())?;
         Ok(file)
@@ -39,7 +40,12 @@ pub fn get_file(path: &Path) -> Result<File> {
 
 /// Deserialise the given `input` into a config struct
 pub fn deserialise(input: &str) -> serde_json::error::Result<structs::Config> {
-    serde_json::from_str(input)
+    let mut config: structs::Config = serde_json::from_str(input)?;
+    config
+        .profiles
+        .iter_mut()
+        .for_each(structs::Profile::backwards_compat);
+    Ok(config)
 }
 
 /// Serialise `config` and write it to `config_file`
