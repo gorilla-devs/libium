@@ -17,11 +17,9 @@ fn show_folder_picker(default: impl AsRef<Path>, prompt: impl Into<String>) -> O
 #[cfg(not(feature = "gui"))]
 /// Uses a terminal input to pick a file, with a `default` path
 fn show_folder_picker(default: impl AsRef<Path>, prompt: impl Into<String>) -> Option<PathBuf> {
-    dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
-        .default(default.as_ref().display().to_string())
-        .with_prompt(prompt)
-        .report(false)
-        .interact()
+    inquire::Text::new(&prompt.into())
+        .with_default(&default.as_ref().display().to_string())
+        .prompt()
         .ok()
         .map(Into::into)
 }
