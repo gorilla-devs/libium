@@ -15,7 +15,7 @@ static VERSION_GROUPS: OnceLock<Vec<Vec<String>>> = OnceLock::new();
 pub enum Error {
     VersionGrouping(#[from] ferinth::Error),
     FilenameRegex(#[from] regex::Error),
-    #[error("The following filter(s) were empty")]
+    #[error("The following filter(s) were empty: {}", _0.iter().display(", "))]
     FilterEmpty(Vec<String>),
     #[error("Failed to find a compatible combination")]
     IntersectFailure,
@@ -121,20 +121,21 @@ pub async fn select_latest(
     let mut filter_results = vec![];
 
     for filter in filters {
-        filter_results.push((filter, filter.filter(&download_files).await?));
+        filter_results.push((filter.to_string(), filter.filter(&download_files).await?));
     }
 
     let empty_filtrations = filter_results
         .iter()
-        .filter_map(|(name, indices)| if indices.is_empty() { Some(name) } else { None })
+        .filter_map(|(filter, indices)| {
+            if indices.is_empty() {
+                Some(filter.clone())
+            } else {
+                None
+            }
+        })
         .collect_vec();
     if !empty_filtrations.is_empty() {
-        return Err(Error::FilterEmpty(
-            empty_filtrations
-                .iter()
-                .map(ToString::to_string)
-                .collect_vec(),
-        ));
+        return Err(Error::FilterEmpty(empty_filtrations));
     }
 
     // Get only the indices of the filtrations

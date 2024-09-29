@@ -153,6 +153,7 @@ pub enum ModLoader {
     Quilt,
     Fabric,
     Forge,
+    #[clap(name = "neoforge")]
     NeoForge,
 }
 
