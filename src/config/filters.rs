@@ -56,8 +56,8 @@ impl ProfileParameters for Vec<Filter> {
 
     fn mod_loader(&self) -> Option<&ModLoader> {
         self.iter().find_map(|filter| match filter {
-            Filter::ModLoaderPrefer(v) => Some(&v[0]),
-            Filter::ModLoaderAny(v) => Some(&v[0]),
+            Filter::ModLoaderPrefer(v) => v.first(),
+            Filter::ModLoaderAny(v) => v.first(),
             _ => None,
         })
     }
