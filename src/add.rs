@@ -298,7 +298,7 @@ pub async fn github(
                     length: 0,
                 })
                 .collect_vec(),
-            &profile.filters,
+            profile.filters.clone(),
         )
         .await?;
     }
@@ -351,7 +351,7 @@ pub async fn modrinth(
                     output: ".jar".into(),
                     length: 0,
                 }],
-                &profile.filters,
+                profile.filters.clone(),
             )
             .await?;
         }
@@ -413,7 +413,7 @@ pub async fn curseforge(
                     output: ".jar".into(),
                     length: 0,
                 }],
-                &profile.filters,
+                profile.filters.clone(),
             )
             .await?;
         }

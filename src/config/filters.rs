@@ -7,6 +7,8 @@ use std::mem::discriminant;
 #[derive(Deserialize, Serialize, Debug, Display, Clone)]
 pub enum Filter {
     /// Prefers files in the order of the given loaders
+    ///
+    /// Implementation detail: This filter only works as intended if it is run last on an already filtered list.
     #[display("Mod Loader (Prefer): {}", _0.iter().display(", "))]
     ModLoaderPrefer(Vec<ModLoader>),
 

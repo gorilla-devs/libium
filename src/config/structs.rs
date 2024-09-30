@@ -112,7 +112,7 @@ pub struct Mod {
     /// Custom filters that apply only for this mod
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
-    pub filters: Vec<Mod>,
+    pub filters: Vec<Filter>,
 
     /// Whether the filters specified above replace or apply with the profile's filters
     #[serde(skip_serializing_if = "is_false")]

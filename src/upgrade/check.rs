@@ -8,8 +8,6 @@ use ferinth::structures::tag::GameVersionType;
 use regex::Regex;
 use std::{collections::HashSet, sync::OnceLock};
 
-static VERSION_GROUPS: OnceLock<Vec<Vec<String>>> = OnceLock::new();
-
 #[derive(thiserror::Error, Debug)]
 #[error(transparent)]
 pub enum Error {
@@ -22,6 +20,11 @@ pub enum Error {
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
+static VERSION_GROUPS: OnceLock<Vec<Vec<String>>> = OnceLock::new();
+
+/// Gets groups of versions that are considered minor updates in terms of mod compatibility
+///
+/// This is determined by Modrinth's `major` parameter for game versions.
 pub async fn get_version_groups() -> Result<&'static Vec<Vec<String>>> {
     if let Some(v) = VERSION_GROUPS.get() {
         Ok(v)
@@ -30,19 +33,24 @@ pub async fn get_version_groups() -> Result<&'static Vec<Vec<String>>> {
         let mut v = vec![vec![]];
         for version in versions {
             if version.version_type == GameVersionType::Release {
+                // Push the version to the latest group
                 v.last_mut().unwrap().push(version.version);
+                // Create a new group if a new major versions is present
                 if version.major {
                     v.push(vec![]);
                 }
             }
         }
-
         let _ = VERSION_GROUPS.set(v);
-        Ok(dbg!(VERSION_GROUPS.get().unwrap()))
+
+        Ok(VERSION_GROUPS.get().unwrap())
     }
 }
 
 impl Filter {
+    /// Returns the indices of `download_files` that have successfully filtered through `self`
+    ///
+    /// This function fails if getting version groups fails, or the regex files to parse.
     pub async fn filter(&self, download_files: &[DownloadFile]) -> Result<HashSet<usize>> {
         Ok(match self {
             Filter::ModLoaderPrefer(loaders) => loaders
@@ -113,22 +121,29 @@ impl Filter {
     }
 }
 
-/// Assumes that the provided `download_files` are sorted in chronological order
+/// Assumes that the provided `download_files` are sorted in the order of preference (e.g. chronological)
 pub async fn select_latest(
     download_files: Vec<DownloadFile>,
-    filters: &[Filter],
+    filters: Vec<Filter>,
 ) -> Result<DownloadFile> {
     let mut filter_results = vec![];
+    let mut run_last = vec![];
 
-    for filter in filters {
-        filter_results.push((filter.to_string(), filter.filter(&download_files).await?));
+    for filter in &filters {
+        if let Filter::ModLoaderPrefer(_) = filter {
+            // ModLoaderPrefer has to be run last
+            run_last.push((filter, filter.filter(&download_files).await?));
+        } else {
+            filter_results.push((filter, filter.filter(&download_files).await?));
+        }
     }
 
     let empty_filtrations = filter_results
         .iter()
+        .chain(run_last.iter())
         .filter_map(|(filter, indices)| {
             if indices.is_empty() {
-                Some(filter.clone())
+                Some(filter.to_string())
             } else {
                 None
             }
@@ -138,15 +153,43 @@ pub async fn select_latest(
         return Err(Error::FilterEmpty(empty_filtrations));
     }
 
-    // Get only the indices of the filtrations
-    let mut index_sets = filter_results.into_iter().map(|(_, set)| set);
+    // Get the indices of the filtrations
+    let mut filter_results = filter_results.into_iter().map(|(_, set)| set);
 
     // Intersect all the index_sets by folding the HashSet::intersection method
     // Ref: https://www.reddit.com/r/rust/comments/5v35l6/intersection_of_more_than_two_sets
-    let final_index = index_sets
+    // Here we're getting the non-ModLoaderPrefer indices first
+    let final_indices = filter_results
+        .next()
+        .map(|set_1| {
+            filter_results.fold(set_1, |set_a, set_b| {
+                set_a.intersection(&set_b).copied().collect_hashset()
+            })
+        })
+        .unwrap_or_default();
+
+    let download_files = download_files
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, f)| {
+            if final_indices.contains(&i) {
+                Some(f)
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    let mut filter_results = vec![];
+    for (filter, _) in run_last {
+        filter_results.push(filter.filter(&download_files).await?)
+    }
+    let mut filter_results = filter_results.into_iter();
+
+    let final_index = filter_results
         .next()
         .and_then(|set_1| {
-            index_sets
+            filter_results
                 .fold(set_1, |set_a, set_b| {
                     set_a.intersection(&set_b).copied().collect_hashset()
                 })
