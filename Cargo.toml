@@ -18,15 +18,8 @@ keywords = [
     "github-releases",
 ]
 
-[features]
-gui = ["rfd"]
-
 [dependencies]
-rfd = { version = "0.14", optional = true, default-features = false, features = [
-    "xdg-portal",
-    "tokio",
-] }
-octocrab = { version = "0.40", default-features = false, features = [
+octocrab = { version = "0.41", default-features = false, features = [
     "default-client",
     "rustls",
 ] }
@@ -42,7 +35,6 @@ futures-util = "0.3"
 serde_json = "1.0"
 thiserror = "1.0"
 ferinth = "2.11"
-inquire = "0.7"
 regex = "1.11"
 furse = "1.5"
 sha1 = "0.10"

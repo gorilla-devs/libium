@@ -1,6 +1,5 @@
 pub mod add;
 pub mod config;
-pub mod file_picker;
 pub mod iter_ext;
 pub mod modpack;
 pub mod scan;
