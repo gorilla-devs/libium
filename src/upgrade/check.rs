@@ -110,11 +110,28 @@ impl Filter {
                     ReleaseChannel::Release => f.channel == ReleaseChannel::Release,
                 })
                 .collect_hashset(),
+
             Filter::Filename(regex) => {
                 let regex = Regex::new(regex)?;
                 download_files
                     .iter()
                     .positions(|f| regex.is_match(&f.filename()))
+                    .collect_hashset()
+            }
+
+            Filter::Title(regex) => {
+                let regex = Regex::new(regex)?;
+                download_files
+                    .iter()
+                    .positions(|f| regex.is_match(&f.title))
+                    .collect_hashset()
+            }
+
+            Filter::Description(regex) => {
+                let regex = Regex::new(regex)?;
+                download_files
+                    .iter()
+                    .positions(|f| regex.is_match(&f.description))
                     .collect_hashset()
             }
         })

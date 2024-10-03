@@ -1,7 +1,7 @@
 use super::{DistributionDeniedError, DownloadFile};
 use crate::{
     config::{
-        filters::Filter,
+        filters::{Filter, ReleaseChannel},
         structs::{Mod, ModIdentifier},
     },
     iter_ext::IterExt as _,
@@ -39,12 +39,24 @@ impl Mod {
                 ModIdentifier::ModrinthProject(_) => {
                     Ok(MODRINTH_API.get_version(pin).await?.into())
                 }
-                ModIdentifier::GitHubRepository((owner, repo)) => Ok(GITHUB_API
-                    .repos(owner, repo)
-                    .release_assets()
-                    .get(pin.parse()?)
-                    .await?
-                    .into()),
+                ModIdentifier::GitHubRepository((owner, repo)) => {
+                    let asset = GITHUB_API
+                        .repos(owner, repo)
+                        .release_assets()
+                        .get(pin.parse()?)
+                        .await?;
+                    Ok(DownloadFile {
+                        download_url: asset.browser_download_url,
+                        output: asset.name.into(),
+                        length: asset.size as usize,
+
+                        title: String::new(),
+                        description: String::new(),
+                        channel: ReleaseChannel::Release,
+                        game_versions: vec![],
+                        loaders: vec![],
+                    })
+                }
             }
         } else {
             let download_files = match &self.identifier {
@@ -66,13 +78,7 @@ impl Mod {
                     .list()
                     .send()
                     .await
-                    .map(|r| {
-                        r.items
-                            .into_iter()
-                            .flat_map(|r| r.assets)
-                            .map(Into::into)
-                            .collect_vec()
-                    })?,
+                    .map(|r| DownloadFile::from_gh_assets(r.items))?,
             };
             Ok(super::check::select_latest(
                 download_files,

@@ -40,7 +40,7 @@ impl ModpackIdentifier {
             create_dir_all(&cache_dir)?;
             total(download_file.length);
             download_file
-                .download(&Client::new(), &cache_dir, update)
+                .download(Client::new(), &cache_dir, update)
                 .await?;
         }
 

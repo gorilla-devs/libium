@@ -2,7 +2,6 @@ use super::structs::ModLoader;
 use crate::iter_ext::IterExt as _;
 use derive_more::derive::Display;
 use serde::{Deserialize, Serialize};
-use std::mem::discriminant;
 
 #[derive(Deserialize, Serialize, Debug, Display, Clone)]
 pub enum Filter {
@@ -29,9 +28,17 @@ pub enum Filter {
     #[display("Release Channel: {_0}")]
     ReleaseChannel(ReleaseChannel),
 
-    /// Selects the files matching the provided regex
+    /// Selects the files with filenames matching the provided regex
     #[display("Filename: {_0}")]
     Filename(String),
+
+    /// Selects files with titles matching the provided regex
+    #[display("Title: {_0}")]
+    Title(String),
+
+    /// Selects files with descriptions matching the provided regex
+    #[display("Description: {_0}")]
+    Description(String),
 }
 
 pub trait ProfileParameters {
@@ -79,11 +86,11 @@ impl ProfileParameters for Vec<Filter> {
     }
 }
 
-impl PartialEq for Filter {
-    fn eq(&self, other: &Self) -> bool {
-        discriminant(self) == discriminant(other)
-    }
-}
+// impl PartialEq for Filter {
+//     fn eq(&self, other: &Self) -> bool {
+//         discriminant(self) == discriminant(other)
+//     }
+// }
 
 #[derive(Deserialize, Serialize, Debug, Display, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum ReleaseChannel {
