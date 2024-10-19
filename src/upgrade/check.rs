@@ -1,4 +1,4 @@
-use super::DownloadFile;
+use super::Metadata;
 use crate::{
     config::filters::{Filter, ReleaseChannel},
     iter_ext::IterExt,
@@ -51,13 +51,16 @@ impl Filter {
     /// Returns the indices of `download_files` that have successfully filtered through `self`
     ///
     /// This function fails if getting version groups fails, or the regex files to parse.
-    pub async fn filter(&self, download_files: &[DownloadFile]) -> Result<HashSet<usize>> {
+    pub async fn filter(
+        &self,
+        mut download_files: impl Iterator<Item = &Metadata>,
+    ) -> Result<HashSet<usize>> {
         Ok(match self {
             Filter::ModLoaderPrefer(loaders) => loaders
                 .iter()
-                .map(|l| {
+                .map(move |l| {
                     download_files
-                        .iter()
+                        .by_ref()
                         .positions(|f| f.loaders.contains(l))
                         .collect_hashset()
                 })
@@ -65,12 +68,10 @@ impl Filter {
                 .unwrap_or_default(),
 
             Filter::ModLoaderAny(loaders) => download_files
-                .iter()
                 .positions(|f| loaders.iter().any(|l| f.loaders.contains(l)))
                 .collect_hashset(),
 
             Filter::GameVersionStrict(versions) => download_files
-                .iter()
                 .positions(|f| {
                     versions.iter().any(|vc| {
                         f.game_versions
@@ -89,7 +90,6 @@ impl Filter {
                 }
 
                 download_files
-                    .iter()
                     .positions(|f| {
                         final_versions.iter().any(|vc| {
                             f.game_versions
@@ -101,7 +101,6 @@ impl Filter {
             }
 
             Filter::ReleaseChannel(channel) => download_files
-                .iter()
                 .positions(|f| match channel {
                     ReleaseChannel::Alpha => true,
                     ReleaseChannel::Beta => {
@@ -114,15 +113,13 @@ impl Filter {
             Filter::Filename(regex) => {
                 let regex = Regex::new(regex)?;
                 download_files
-                    .iter()
-                    .positions(|f| regex.is_match(&f.filename()))
+                    .positions(|f| regex.is_match(&f.filename))
                     .collect_hashset()
             }
 
             Filter::Title(regex) => {
                 let regex = Regex::new(regex)?;
                 download_files
-                    .iter()
                     .positions(|f| regex.is_match(&f.title))
                     .collect_hashset()
             }
@@ -130,7 +127,6 @@ impl Filter {
             Filter::Description(regex) => {
                 let regex = Regex::new(regex)?;
                 download_files
-                    .iter()
                     .positions(|f| regex.is_match(&f.description))
                     .collect_hashset()
             }
@@ -140,18 +136,18 @@ impl Filter {
 
 /// Assumes that the provided `download_files` are sorted in the order of preference (e.g. chronological)
 pub async fn select_latest(
-    download_files: Vec<DownloadFile>,
+    download_files: impl Iterator<Item = &Metadata> + Clone,
     filters: Vec<Filter>,
-) -> Result<DownloadFile> {
+) -> Result<usize> {
     let mut filter_results = vec![];
     let mut run_last = vec![];
 
     for filter in &filters {
         if let Filter::ModLoaderPrefer(_) = filter {
             // ModLoaderPrefer has to be run last
-            run_last.push((filter, filter.filter(&download_files).await?));
+            run_last.push((filter, filter.filter(download_files.clone()).await?));
         } else {
-            filter_results.push((filter, filter.filter(&download_files).await?));
+            filter_results.push((filter, filter.filter(download_files.clone()).await?));
         }
     }
 
@@ -185,21 +181,17 @@ pub async fn select_latest(
         })
         .unwrap_or_default();
 
-    let download_files = download_files
-        .into_iter()
-        .enumerate()
-        .filter_map(|(i, f)| {
-            if final_indices.contains(&i) {
-                Some(f)
-            } else {
-                None
-            }
-        })
-        .collect_vec();
+    let download_files = download_files.into_iter().enumerate().filter_map(|(i, f)| {
+        if final_indices.contains(&i) {
+            Some(f)
+        } else {
+            None
+        }
+    });
 
     let mut filter_results = vec![];
     for (filter, _) in run_last {
-        filter_results.push(filter.filter(&download_files).await?)
+        filter_results.push(filter.filter(download_files.clone()).await?)
     }
     let mut filter_results = filter_results.into_iter();
 
@@ -215,5 +207,5 @@ pub async fn select_latest(
         })
         .ok_or(Error::IntersectFailure)?;
 
-    Ok(download_files[final_index].clone())
+    Ok(final_index)
 }

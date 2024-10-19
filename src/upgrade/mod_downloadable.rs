@@ -1,7 +1,10 @@
-use super::{DistributionDeniedError, DownloadFile};
+use super::{
+    from_gh_asset, from_gh_releases, from_mr_version, try_from_cf_file, DistributionDeniedError,
+    DownloadData,
+};
 use crate::{
     config::{
-        filters::{Filter, ReleaseChannel},
+        filters::Filter,
         structs::{Mod, ModIdentifier},
     },
     iter_ext::IterExt as _,
@@ -29,34 +32,24 @@ impl Mod {
     pub async fn fetch_download_file(
         &self,
         mut profile_filters: Vec<Filter>,
-    ) -> Result<DownloadFile> {
+    ) -> Result<DownloadData> {
         if let Some(pin) = &self.pin {
             match &self.identifier {
-                ModIdentifier::CurseForgeProject(mod_id) => Ok(CURSEFORGE_API
-                    .get_mod_file(*mod_id, pin.parse()?)
-                    .await?
-                    .try_into()?),
-                ModIdentifier::ModrinthProject(_) => {
-                    Ok(MODRINTH_API.get_version(pin).await?.into())
+                ModIdentifier::CurseForgeProject(mod_id) => {
+                    try_from_cf_file(CURSEFORGE_API.get_mod_file(*mod_id, pin.parse()?).await?)
+                        .map(|(_, d)| d)
+                        .map_err(Into::into)
                 }
-                ModIdentifier::GitHubRepository((owner, repo)) => {
-                    let asset = GITHUB_API
+                ModIdentifier::ModrinthProject(_) => {
+                    Ok(from_mr_version(MODRINTH_API.get_version(pin).await?).1)
+                }
+                ModIdentifier::GitHubRepository((owner, repo)) => Ok(from_gh_asset(
+                    GITHUB_API
                         .repos(owner, repo)
                         .release_assets()
                         .get(pin.parse()?)
-                        .await?;
-                    Ok(DownloadFile {
-                        download_url: asset.browser_download_url,
-                        output: asset.name.into(),
-                        length: asset.size as usize,
-
-                        title: String::new(),
-                        description: String::new(),
-                        channel: ReleaseChannel::Release,
-                        game_versions: vec![],
-                        loaders: vec![],
-                    })
-                }
+                        .await?,
+                )),
             }
         } else {
             let download_files = match &self.identifier {
@@ -65,23 +58,26 @@ impl Mod {
                     files.sort_unstable_by_key(|f| Reverse(f.file_date));
                     files
                         .into_iter()
-                        .map(|x| x.try_into().map_err(Into::into))
+                        .map(|f| try_from_cf_file(f).map_err(Into::into))
                         .collect::<Result<Vec<_>>>()?
                 }
                 ModIdentifier::ModrinthProject(id) => MODRINTH_API
                     .list_versions(id)
-                    .await
-                    .map(|x| x.into_iter().map(Into::into).collect_vec())?,
+                    .await?
+                    .into_iter()
+                    .map(from_mr_version)
+                    .collect_vec(),
                 ModIdentifier::GitHubRepository((owner, repo)) => GITHUB_API
                     .repos(owner, repo)
                     .releases()
                     .list()
                     .send()
                     .await
-                    .map(|r| DownloadFile::from_gh_assets(r.items))?,
+                    .map(|r| from_gh_releases(r.items))?,
             };
-            Ok(super::check::select_latest(
-                download_files,
+
+            let index = super::check::select_latest(
+                download_files.iter().map(|(m, _)| m),
                 if self.override_filters {
                     self.filters.clone()
                 } else {
@@ -89,7 +85,8 @@ impl Mod {
                     profile_filters
                 },
             )
-            .await?)
+            .await?;
+            Ok(download_files.into_iter().nth(index).unwrap().1)
         }
     }
 }

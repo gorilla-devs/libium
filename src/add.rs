@@ -1,10 +1,10 @@
 use crate::{
     config::{
-        filters::ReleaseChannel,
+        filters::{Filter, ReleaseChannel},
         structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
     },
     iter_ext::IterExt as _,
-    upgrade::{check, DownloadFile},
+    upgrade::{check, Metadata},
     CURSEFORGE_API, GITHUB_API, MODRINTH_API,
 };
 use serde::Deserialize;
@@ -67,9 +67,12 @@ struct ReleaseConnection {
     nodes: Vec<Release>,
 }
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct Release {
-    #[serde(rename = "releaseAssets")]
-    assets: ReleaseAssetConnection,
+    name: String,
+    description: String,
+    is_prerelease: bool,
+    release_assets: ReleaseAssetConnection,
 }
 #[derive(Deserialize, Debug)]
 struct ReleaseAssetConnection {
@@ -102,6 +105,8 @@ pub async fn add(
     profile: &mut Profile,
     identifiers: Vec<ModIdentifier>,
     perform_checks: bool,
+    override_profile: bool,
+    filters: Vec<Filter>,
 ) -> Result<(Vec<String>, Vec<(String, Error)>)> {
     let mut mr_ids = Vec::new();
     let mut cf_ids = Vec::new();
@@ -134,75 +139,104 @@ pub async fn add(
         Vec::new()
     };
 
-    let gh_repos = {
-        // Construct GraphQl query using raw strings
-        let mut graphql_query = "{".to_string();
-        for (i, (owner, name)) in gh_ids.iter().enumerate() {
-            graphql_query.push_str(&format!(
-                "_{i}: repository(owner: \"{owner}\", name: \"{name}\") {{
+    let gh_repos =
+        {
+            // Construct GraphQl query using raw strings
+            let mut graphql_query = "{".to_string();
+            for (i, (owner, name)) in gh_ids.iter().enumerate() {
+                graphql_query.push_str(&format!(
+                    "_{i}: repository(owner: \"{owner}\", name: \"{name}\") {{
                     owner {{
                         login
                     }}
                     name
                     releases(first: 100) {{
-                      nodes {{
-                        releaseAssets(first: 10) {{
-                          nodes {{
+                        nodes {{
                             name
-                          }}
+                            description
+                            isPrerelease
+                            releaseAssets(first: 10) {{
+                                nodes {{
+                                    name
+                                }}
+                            }}
                         }}
-                      }}
                     }}
                 }}"
-            ));
-        }
-        graphql_query.push('}');
-
-        // Send the query
-        let response: GraphQlResponse = if !gh_ids.is_empty() {
-            GITHUB_API
-                .graphql(&HashMap::from([("query", graphql_query)]))
-                .await?
-        } else {
-            GraphQlResponse {
-                data: HashMap::new(),
-                errors: Vec::new(),
+                ));
             }
-        };
+            graphql_query.push('}');
 
-        errors.extend(response.errors.into_iter().map(|v| {
-            (
-                {
-                    let id = &gh_ids[v.path[0]
-                        .strip_prefix('_')
-                        .and_then(|s| s.parse::<usize>().ok())
-                        .expect("Unexpected response data")];
-                    format!("{}/{}", id.0, id.1)
-                },
-                if v.type_ == "NOT_FOUND" {
-                    Error::DoesNotExist
-                } else {
-                    Error::GitHubError(v.message)
-                },
-            )
-        }));
+            // Send the query
+            let response: GraphQlResponse = if !gh_ids.is_empty() {
+                GITHUB_API
+                    .graphql(&HashMap::from([("query", graphql_query)]))
+                    .await?
+            } else {
+                GraphQlResponse {
+                    data: HashMap::new(),
+                    errors: Vec::new(),
+                }
+            };
 
-        response
-            .data
-            .into_values()
-            .flatten()
-            .map(|d| {
+            errors.extend(response.errors.into_iter().map(|v| {
                 (
-                    (d.owner.login, d.name),
-                    d.releases
-                        .nodes
-                        .into_iter()
-                        .flat_map(|r| r.assets.nodes.into_iter().map(|e| e.name))
-                        .collect_vec(),
+                    {
+                        let id = &gh_ids[v.path[0]
+                            .strip_prefix('_')
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .expect("Unexpected response data")];
+                        format!("{}/{}", id.0, id.1)
+                    },
+                    if v.type_ == "NOT_FOUND" {
+                        Error::DoesNotExist
+                    } else {
+                        Error::GitHubError(v.message)
+                    },
                 )
-            })
-            .collect_vec()
-    };
+            }));
+
+            response
+                .data
+                .into_values()
+                .flatten()
+                .map(|d| {
+                    (
+                        (d.owner.login, d.name),
+                        d.releases
+                            .nodes
+                            .into_iter()
+                            .flat_map(|release| {
+                                release.release_assets.nodes.into_iter().map(move |asset| {
+                                    Metadata {
+                                        filename: asset.name.clone(),
+                                        title: release.name.clone(),
+                                        description: release.description.clone(),
+                                        channel: if release.is_prerelease {
+                                            ReleaseChannel::Beta
+                                        } else {
+                                            ReleaseChannel::Release
+                                        },
+                                        game_versions: asset
+                                            .name
+                                            .trim_end_matches(".jar")
+                                            .split(['-', '_', '+'])
+                                            .map(ToOwned::to_owned)
+                                            .collect_vec(),
+                                        loaders: asset
+                                            .name
+                                            .trim_end_matches(".jar")
+                                            .split(['-', '_', '+'])
+                                            .filter_map(|s| ModLoader::from_str(s).ok())
+                                            .collect_vec(),
+                                    }
+                                })
+                            })
+                            .collect_vec(),
+                    )
+                })
+                .collect_vec()
+        };
 
     let mut success_names = Vec::new();
 
@@ -211,7 +245,15 @@ pub async fn add(
             cf_ids.swap_remove(i);
         }
 
-        match curseforge(&project, profile, perform_checks).await {
+        match curseforge(
+            &project,
+            profile,
+            perform_checks,
+            override_profile,
+            filters.clone(),
+        )
+        .await
+        {
             Ok(_) => success_names.push(project.name),
             Err(err) => errors.push((format!("{} ({})", project.name, project.id), err)),
         }
@@ -230,7 +272,15 @@ pub async fn add(
             mr_ids.swap_remove(i);
         }
 
-        match modrinth(&project, profile, perform_checks).await {
+        match modrinth(
+            &project,
+            profile,
+            perform_checks,
+            override_profile,
+            filters.clone(),
+        )
+        .await
+        {
             Ok(_) => success_names.push(project.title),
             Err(err) => errors.push((format!("{} ({})", project.title, project.id), err)),
         }
@@ -242,7 +292,15 @@ pub async fn add(
     );
 
     for (repo, asset_names) in gh_repos {
-        match github(&repo, profile, Some(&asset_names)).await {
+        match github(
+            &repo,
+            profile,
+            Some(asset_names),
+            override_profile,
+            filters.clone(),
+        )
+        .await
+        {
             Ok(_) => success_names.push(format!("{}/{}", repo.0, repo.1)),
             Err(err) => errors.push((format!("{}/{}", repo.0, repo.1), err)),
         }
@@ -258,7 +316,9 @@ pub async fn add(
 pub async fn github(
     id: &(impl AsRef<str> + ToString, impl AsRef<str> + ToString),
     profile: &mut Profile,
-    perform_checks: Option<&[String]>,
+    perform_checks: Option<Vec<Metadata>>,
+    override_profile: bool,
+    filters: Vec<Filter>,
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -269,36 +329,15 @@ pub async fn github(
         return Err(Error::AlreadyAdded);
     }
 
-    if let Some(asset_names) = perform_checks {
-        // Check if jar files are released
-        if !asset_names.iter().any(|name| name.ends_with(".jar")) {
-            return Err(Error::NotAMod);
-        }
-
+    if let Some(download_files) = perform_checks {
         // Check if the repo is compatible
         check::select_latest(
-            asset_names
-                .iter()
-                .map(|a| DownloadFile {
-                    game_versions: a
-                        .strip_suffix(".jar")
-                        .unwrap_or("")
-                        .split('-')
-                        .map(ToOwned::to_owned)
-                        .collect_vec(),
-                    loaders: a
-                        .strip_suffix(".jar")
-                        .unwrap_or("")
-                        .split('-')
-                        .filter_map(|s| ModLoader::from_str(s).ok())
-                        .collect_vec(),
-                    channel: ReleaseChannel::Alpha,
-                    download_url: "https://example.com".parse().unwrap(),
-                    output: ".jar".into(),
-                    length: 0,
-                })
-                .collect_vec(),
-            profile.filters.clone(),
+            download_files.iter(),
+            if override_profile {
+                profile.filters.clone()
+            } else {
+                [profile.filters.clone(), filters.clone()].concat()
+            },
         )
         .await?;
     }
@@ -308,8 +347,8 @@ pub async fn github(
         name: id.1.as_ref().trim().to_string(),
         identifier: ModIdentifier::GitHubRepository((id.0.to_string(), id.1.to_string())),
         pin: None,
-        override_filters: false,
-        filters: vec![],
+        override_filters: override_profile,
+        filters,
     });
 
     Ok(())
@@ -323,6 +362,8 @@ pub async fn modrinth(
     project: &Project,
     profile: &mut Profile,
     perform_checks: bool,
+    override_profile: bool,
+    filters: Vec<Filter>,
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -339,7 +380,10 @@ pub async fn modrinth(
     } else {
         if perform_checks {
             check::select_latest(
-                vec![DownloadFile {
+                [Metadata {
+                    filename: "".to_owned(),
+                    title: "".to_owned(),
+                    description: "".to_owned(),
                     game_versions: project.game_versions.clone(),
                     loaders: project
                         .loaders
@@ -347,11 +391,25 @@ pub async fn modrinth(
                         .filter_map(|s| ModLoader::from_str(s).ok())
                         .collect_vec(),
                     channel: ReleaseChannel::Release,
-                    download_url: "https://example.com".parse().unwrap(),
-                    output: ".jar".into(),
-                    length: 0,
-                }],
-                profile.filters.clone(),
+                }]
+                .iter(),
+                if override_profile {
+                    profile.filters.clone()
+                } else {
+                    [profile.filters.clone(), filters.clone()].concat()
+                }
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f,
+                        Filter::GameVersionStrict(_)
+                            | Filter::GameVersionMinor(_)
+                            | Filter::ModLoaderAny(_)
+                            | Filter::ModLoaderPrefer(_)
+                    )
+                })
+                .cloned()
+                .collect_vec(),
             )
             .await?;
         }
@@ -360,8 +418,8 @@ pub async fn modrinth(
             name: project.title.trim().to_owned(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
             pin: None,
-            override_filters: false,
-            filters: vec![],
+            override_filters: override_profile,
+            filters,
         });
         Ok(())
     }
@@ -373,6 +431,8 @@ pub async fn curseforge(
     project: &furse::structures::mod_structs::Mod,
     profile: &mut Profile,
     perform_checks: bool,
+    override_profile: bool,
+    filters: Vec<Filter>,
 ) -> Result<()> {
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
@@ -393,7 +453,10 @@ pub async fn curseforge(
     } else {
         if perform_checks {
             check::select_latest(
-                vec![DownloadFile {
+                [Metadata {
+                    filename: "".to_owned(),
+                    title: "".to_owned(),
+                    description: "".to_owned(),
                     game_versions: project
                         .latest_files_indexes
                         .iter()
@@ -409,11 +472,25 @@ pub async fn curseforge(
                         })
                         .collect_vec(),
                     channel: ReleaseChannel::Release,
-                    download_url: "https://example.com".parse().unwrap(),
-                    output: ".jar".into(),
-                    length: 0,
-                }],
-                profile.filters.clone(),
+                }]
+                .iter(),
+                if override_profile {
+                    profile.filters.clone()
+                } else {
+                    [profile.filters.clone(), filters.clone()].concat()
+                }
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f,
+                        Filter::GameVersionStrict(_)
+                            | Filter::GameVersionMinor(_)
+                            | Filter::ModLoaderAny(_)
+                            | Filter::ModLoaderPrefer(_)
+                    )
+                })
+                .cloned()
+                .collect_vec(),
             )
             .await?;
         }
@@ -421,8 +498,8 @@ pub async fn curseforge(
             name: project.name.trim().to_string(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
             pin: None,
-            override_filters: false,
-            filters: vec![],
+            override_filters: override_profile,
+            filters,
         });
 
         Ok(())

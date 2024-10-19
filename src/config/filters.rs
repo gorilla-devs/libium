@@ -8,36 +8,36 @@ pub enum Filter {
     /// Prefers files in the order of the given loaders
     ///
     /// Implementation detail: This filter only works as intended if it is run last on an already filtered list.
-    #[display("Mod Loader (Prefer): {}", _0.iter().display(", "))]
+    #[display("Mod Loader ({})", _0.iter().display(", "))]
     ModLoaderPrefer(Vec<ModLoader>),
 
     /// Selects files that are compatible with any of the given loaders
-    #[display("Mod Loader (Either): {}", _0.iter().display(", "))]
+    #[display("Mod Loader Either ({})", _0.iter().display(", "))]
     ModLoaderAny(Vec<ModLoader>),
 
     /// Selects files strictly compatible with the versions specified
-    #[display("Game Version: {}", _0.iter().display(", "))]
+    #[display("Game Version ({})", _0.iter().display(", "))]
     GameVersionStrict(Vec<String>),
 
     /// Selects files compatible with the versions specified and related versions that are
     /// considered to not have breaking changes (determined using Modrinth's game version tag list)
-    #[display("Game Version (Minor): {}", _0.iter().display(", "))]
+    #[display("Game Version Minor ({})", _0.iter().display(", "))]
     GameVersionMinor(Vec<String>),
 
     /// Selects files matching the channel provided or more stable channels
-    #[display("Release Channel: {_0}")]
+    #[display("Release Channel ({_0})")]
     ReleaseChannel(ReleaseChannel),
 
     /// Selects the files with filenames matching the provided regex
-    #[display("Filename: {_0}")]
+    #[display("Filename ({_0})")]
     Filename(String),
 
     /// Selects files with titles matching the provided regex
-    #[display("Title: {_0}")]
+    #[display("Title ({_0})")]
     Title(String),
 
     /// Selects files with descriptions matching the provided regex
-    #[display("Description: {_0}")]
+    #[display("Description ({_0})")]
     Description(String),
 }
 

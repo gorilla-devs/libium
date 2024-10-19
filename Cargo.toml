@@ -19,10 +19,6 @@ keywords = [
 ]
 
 [dependencies]
-octocrab = { version = "=0.40", default-features = false, features = [
-    "default-client",
-    "rustls",
-] }
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
 ] }
@@ -34,6 +30,7 @@ zip-extensions = "0.8"
 futures-util = "0.3"
 serde_json = "1.0"
 thiserror = "1.0"
+octocrab = "0.41"
 ferinth = "2.11"
 regex = "1.11"
 furse = "1.5"

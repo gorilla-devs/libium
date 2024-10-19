@@ -10,7 +10,7 @@ use crate::{
 };
 use ferinth::structures::version::{Version as MRVersion, VersionType};
 use furse::structures::file_structs::{File as CFFile, FileReleaseType};
-use octocrab::models::repos::Release as GHRelease;
+use octocrab::models::repos::{Asset as GHAsset, Release as GHRelease};
 use reqwest::{Client, Url};
 use std::{
     fs::{create_dir_all, rename, OpenOptions},
@@ -28,15 +28,21 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
-pub struct DownloadFile {
+pub struct Metadata {
     /// The title of the GitHub Release, Modrinth Version, or CurseForge File
     pub title: String,
     /// The body of the GitHub Release, or the changelog of the Modrinth Version
     pub description: String,
+    pub filename: String,
+
     pub channel: ReleaseChannel,
+
     pub game_versions: Vec<String>,
     pub loaders: Vec<ModLoader>,
+}
 
+#[derive(Debug, Clone)]
+pub struct DownloadData {
     pub download_url: Url,
     /// The path of the downloaded file relative to the output directory
     ///
@@ -51,12 +57,14 @@ pub struct DownloadFile {
 /// Contains the mod ID and file ID
 pub struct DistributionDeniedError(pub i32, pub i32);
 
-impl TryFrom<CFFile> for DownloadFile {
-    type Error = DistributionDeniedError;
-    fn try_from(file: CFFile) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
+pub fn try_from_cf_file(
+    file: CFFile,
+) -> std::result::Result<(Metadata, DownloadData), DistributionDeniedError> {
+    Ok((
+        Metadata {
             title: file.display_name,
             description: String::new(), // Changelog requires a separate request
+            filename: file.file_name.clone(),
             channel: match file.release_type {
                 FileReleaseType::Release => ReleaseChannel::Release,
                 FileReleaseType::Beta => ReleaseChannel::Beta,
@@ -68,21 +76,23 @@ impl TryFrom<CFFile> for DownloadFile {
                 .filter_map(|s| ModLoader::from_str(s).ok())
                 .collect_vec(),
             game_versions: file.game_versions,
-
+        },
+        DownloadData {
             download_url: file
                 .download_url
                 .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
-            output: file.file_name.into(),
+            output: file.file_name.as_str().into(),
             length: file.file_length,
-        })
-    }
+        },
+    ))
 }
 
-impl From<MRVersion> for DownloadFile {
-    fn from(version: MRVersion) -> Self {
-        Self {
+pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
+    (
+        Metadata {
             title: version.name.clone(),
             description: version.changelog.as_ref().cloned().unwrap_or_default(),
+            filename: version.get_version_file().filename.clone(),
             channel: match version.version_type {
                 VersionType::Release => ReleaseChannel::Release,
                 VersionType::Beta => ReleaseChannel::Beta,
@@ -94,71 +104,78 @@ impl From<MRVersion> for DownloadFile {
                 .filter_map(|s| ModLoader::from_str(s).ok())
                 .collect_vec(),
 
+            game_versions: version.game_versions.clone(),
+        },
+        DownloadData {
             download_url: version.get_version_file().url.clone(),
             output: version.get_version_file().filename.as_str().into(),
             length: version.get_version_file().size,
+        },
+    )
+}
 
-            game_versions: version.game_versions,
-        }
+pub fn from_modpack_file(file: ModpackModFile) -> DownloadData {
+    DownloadData {
+        download_url: file
+            .downloads
+            .first()
+            .expect("Download URLs not provided")
+            .clone(),
+        output: file.path,
+        length: file.file_size,
     }
 }
 
-impl From<ModpackModFile> for DownloadFile {
-    fn from(file: ModpackModFile) -> Self {
-        Self {
-            download_url: file
-                .downloads
-                .first()
-                .expect("Download URLs not provided")
-                .clone(),
-            output: file.path,
-            length: file.file_size,
-
-            title: String::new(),
-            description: String::new(),
-            channel: ReleaseChannel::Release,
-            game_versions: vec![],
-            loaders: vec![],
-        }
-    }
-}
-
-impl DownloadFile {
-    fn from_gh_assets(releases: impl IntoIterator<Item = GHRelease>) -> Vec<Self> {
-        releases
-            .into_iter()
-            .flat_map(|release| {
-                release.assets.into_iter().map(move |asset| Self {
-                    title: release.name.clone().unwrap_or_default(),
-                    description: release.body.clone().unwrap_or_default(),
-                    channel: if release.prerelease {
-                        ReleaseChannel::Beta
-                    } else {
-                        ReleaseChannel::Release
+pub fn from_gh_releases(
+    releases: impl IntoIterator<Item = GHRelease>,
+) -> Vec<(Metadata, DownloadData)> {
+    releases
+        .into_iter()
+        .flat_map(|release| {
+            release.assets.into_iter().map(move |asset| {
+                (
+                    Metadata {
+                        title: release.name.clone().unwrap_or_default(),
+                        description: release.body.clone().unwrap_or_default(),
+                        filename: asset.name.clone(),
+                        channel: if release.prerelease {
+                            ReleaseChannel::Beta
+                        } else {
+                            ReleaseChannel::Release
+                        },
+                        game_versions: asset
+                            .name
+                            .trim_end_matches(".jar")
+                            .split(['-', '_', '+'])
+                            .map(ToOwned::to_owned)
+                            .collect_vec(),
+                        loaders: asset
+                            .name
+                            .trim_end_matches(".jar")
+                            .split(['-', '_', '+'])
+                            .filter_map(|s| ModLoader::from_str(s).ok())
+                            .collect_vec(),
                     },
-                    game_versions: asset
-                        .name
-                        .trim_end_matches(".jar")
-                        .split('-')
-                        .map(ToOwned::to_owned)
-                        .collect_vec(),
-                    loaders: asset
-                        .name
-                        .trim_end_matches(".jar")
-                        .split('-')
-                        .filter_map(|s| ModLoader::from_str(s).ok())
-                        .collect_vec(),
-
-                    download_url: asset.browser_download_url,
-                    output: asset.name.into(),
-                    length: asset.size as usize,
-                })
+                    DownloadData {
+                        download_url: asset.browser_download_url,
+                        output: asset.name.into(),
+                        length: asset.size as usize,
+                    },
+                )
             })
-            .collect_vec()
+        })
+        .collect_vec()
+}
+
+pub fn from_gh_asset(asset: GHAsset) -> DownloadData {
+    DownloadData {
+        download_url: asset.browser_download_url,
+        output: asset.name.into(),
+        length: asset.size as usize,
     }
 }
 
-impl DownloadFile {
+impl DownloadData {
     /// Consumes `self` and downloads the file to the `output_dir`
     ///
     /// The `update` closure is called with the chunk length whenever a chunk is downloaded and written.

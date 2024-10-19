@@ -1,4 +1,4 @@
-use super::{DistributionDeniedError, DownloadFile};
+use super::{from_mr_version, try_from_cf_file, DistributionDeniedError};
 use crate::{config::structs::ModpackIdentifier, CURSEFORGE_API, HOME, MODRINTH_API};
 use reqwest::Client;
 use std::{fs::create_dir_all, path::PathBuf};
@@ -23,23 +23,21 @@ impl ModpackIdentifier {
         total: impl FnOnce(usize) + Send,
         update: impl Fn(usize) + Send,
     ) -> Result<PathBuf> {
-        let download_file: DownloadFile = match self {
-            ModpackIdentifier::CurseForgeModpack(id) => CURSEFORGE_API
-                .get_mod_files(*id)
-                .await?
-                .swap_remove(0)
-                .try_into()?,
+        let (_, download_data) = match self {
+            ModpackIdentifier::CurseForgeModpack(id) => {
+                try_from_cf_file(CURSEFORGE_API.get_mod_files(*id).await?.swap_remove(0))?
+            }
             ModpackIdentifier::ModrinthModpack(id) => {
-                MODRINTH_API.list_versions(id).await?.swap_remove(0).into()
+                from_mr_version(MODRINTH_API.list_versions(id).await?.swap_remove(0))
             }
         };
 
         let cache_dir = HOME.join(".config").join("ferium").join(".cache");
-        let modpack_path = cache_dir.join(&download_file.output);
+        let modpack_path = cache_dir.join(&download_data.output);
         if !modpack_path.exists() {
             create_dir_all(&cache_dir)?;
-            total(download_file.length);
-            download_file
+            total(download_data.length);
+            download_data
                 .download(Client::new(), &cache_dir, update)
                 .await?;
         }
