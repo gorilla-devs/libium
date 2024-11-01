@@ -1,7 +1,7 @@
 use super::Metadata;
 use crate::{
     config::filters::{Filter, ReleaseChannel},
-    iter_ext::IterExt,
+    iter_ext::{IterExt, IterExtPositions},
     MODRINTH_API,
 };
 use ferinth::structures::tag::GameVersionType;
@@ -53,7 +53,7 @@ impl Filter {
     /// This function fails if getting version groups fails, or the regex files to parse.
     pub async fn filter(
         &self,
-        mut download_files: impl Iterator<Item = &Metadata>,
+        mut download_files: impl Iterator<Item = (usize, &Metadata)>,
     ) -> Result<HashSet<usize>> {
         Ok(match self {
             Filter::ModLoaderPrefer(loaders) => loaders
@@ -145,9 +145,15 @@ pub async fn select_latest(
     for filter in &filters {
         if let Filter::ModLoaderPrefer(_) = filter {
             // ModLoaderPrefer has to be run last
-            run_last.push((filter, filter.filter(download_files.clone()).await?));
+            run_last.push((
+                filter,
+                filter.filter(download_files.clone().enumerate()).await?,
+            ));
         } else {
-            filter_results.push((filter, filter.filter(download_files.clone()).await?));
+            filter_results.push((
+                filter,
+                filter.filter(download_files.clone().enumerate()).await?,
+            ));
         }
     }
 
@@ -183,7 +189,7 @@ pub async fn select_latest(
 
     let download_files = download_files.into_iter().enumerate().filter_map(|(i, f)| {
         if final_indices.contains(&i) {
-            Some(f)
+            Some((i, f))
         } else {
             None
         }
