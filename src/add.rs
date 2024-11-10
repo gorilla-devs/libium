@@ -1,7 +1,7 @@
 use crate::{
     config::{
         filters::{Filter, ReleaseChannel},
-        structs::{Mod, ModIdentifier, ModIdentifierRef, ModLoader, Profile},
+        structs::{Mod, ModIdentifier, ModLoader, Profile},
     },
     iter_ext::IterExt as _,
     upgrade::{check, Metadata},
@@ -89,7 +89,7 @@ pub fn parse_id(id: String) -> ModIdentifier {
     } else {
         let split = id.split('/').collect_vec();
         if split.len() == 2 {
-            ModIdentifier::GitHubRepository((split[0].to_owned(), split[1].to_owned()))
+            ModIdentifier::GitHubRepository(split[0].to_owned(), split[1].to_owned())
         } else {
             ModIdentifier::ModrinthProject(id)
         }
@@ -117,7 +117,9 @@ pub async fn add(
         match id {
             ModIdentifier::CurseForgeProject(id) => cf_ids.push(id),
             ModIdentifier::ModrinthProject(id) => mr_ids.push(id),
-            ModIdentifier::GitHubRepository(id) => gh_ids.push(id),
+            ModIdentifier::GitHubRepository(o, r) => gh_ids.push((o, r)),
+
+            _ => todo!("Adding pinned projects is not supported yet"),
         }
     }
 
@@ -323,8 +325,10 @@ pub async fn github(
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name.eq_ignore_ascii_case(id.1.as_ref())
-            || ModIdentifierRef::GitHubRepository((id.0.as_ref(), id.1.as_ref()))
-                == mod_.identifier.as_ref()
+            || matches!(
+                &mod_.identifier,
+                ModIdentifier::GitHubRepository(owner, repo) if owner == id.0.as_ref() && repo == id.1.as_ref(),
+            )
     }) {
         return Err(Error::AlreadyAdded);
     }
@@ -345,8 +349,7 @@ pub async fn github(
     // Add it to the profile
     profile.mods.push(Mod {
         name: id.1.as_ref().trim().to_string(),
-        identifier: ModIdentifier::GitHubRepository((id.0.to_string(), id.1.to_string())),
-        pin: None,
+        identifier: ModIdentifier::GitHubRepository(id.0.to_string(), id.1.to_string()),
         override_filters: override_profile,
         filters,
     });
@@ -368,7 +371,10 @@ pub async fn modrinth(
     // Check if project has already been added
     if profile.mods.iter().any(|mod_| {
         mod_.name.eq_ignore_ascii_case(&project.title)
-            || ModIdentifierRef::ModrinthProject(&project.id) == mod_.identifier.as_ref()
+            || matches!(
+                &mod_.identifier,
+                ModIdentifier::ModrinthProject(id) if id == &project.id,
+            )
     }) {
         Err(Error::AlreadyAdded)
 
@@ -417,7 +423,6 @@ pub async fn modrinth(
         profile.mods.push(Mod {
             name: project.title.trim().to_owned(),
             identifier: ModIdentifier::ModrinthProject(project.id.clone()),
-            pin: None,
             override_filters: override_profile,
             filters,
         });
@@ -497,7 +502,6 @@ pub async fn curseforge(
         profile.mods.push(Mod {
             name: project.name.trim().to_string(),
             identifier: ModIdentifier::CurseForgeProject(project.id),
-            pin: None,
             override_filters: override_profile,
             filters,
         });

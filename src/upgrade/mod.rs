@@ -3,13 +3,20 @@ pub mod mod_downloadable;
 pub mod modpack_downloadable;
 
 use crate::{
-    config::{filters::ReleaseChannel, structs::ModLoader},
+    config::{
+        filters::ReleaseChannel,
+        structs::{ModIdentifier, ModLoader},
+    },
     iter_ext::IterExt as _,
     modpack::modrinth::structs::ModpackFile as ModpackModFile,
     version_ext::VersionExt,
 };
-use ferinth::structures::version::{Version as MRVersion, VersionType};
-use furse::structures::file_structs::{File as CFFile, FileReleaseType};
+use ferinth::structures::version::{
+    DependencyType as MRDependencyType, Version as MRVersion, VersionType,
+};
+use furse::structures::file_structs::{
+    File as CFFile, FileRelationType as CFFileRelationType, FileReleaseType,
+};
 use octocrab::models::repos::{Asset as GHAsset, Release as GHRelease};
 use reqwest::{Client, Url};
 use std::{
@@ -50,6 +57,10 @@ pub struct DownloadData {
     pub output: PathBuf,
     /// The length of the file in bytes
     pub length: usize,
+    /// The dependencies this file has
+    pub dependencies: Vec<ModIdentifier>,
+    /// Other mods this file is incompatible with
+    pub conflicts: Vec<ModIdentifier>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -83,6 +94,28 @@ pub fn try_from_cf_file(
                 .ok_or(DistributionDeniedError(file.mod_id, file.id))?,
             output: file.file_name.as_str().into(),
             length: file.file_length,
+            dependencies: file
+                .dependencies
+                .iter()
+                .filter_map(|d| {
+                    if d.relation_type == CFFileRelationType::RequiredDependency {
+                        Some(ModIdentifier::CurseForgeProject(d.mod_id))
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec(),
+            conflicts: file
+                .dependencies
+                .iter()
+                .filter_map(|d| {
+                    if d.relation_type == CFFileRelationType::Incompatible {
+                        Some(ModIdentifier::CurseForgeProject(d.mod_id))
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec(),
         },
     ))
 }
@@ -110,6 +143,50 @@ pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
             download_url: version.get_version_file().url.clone(),
             output: version.get_version_file().filename.as_str().into(),
             length: version.get_version_file().size,
+            dependencies: version
+                .dependencies
+                .iter()
+                .filter_map(|d| {
+                    if d.dependency_type == MRDependencyType::Required {
+                        match (&d.project_id, &d.version_id) {
+                            (_, Some(ver_id)) => Some(ModIdentifier::PinnedModrinthProject(
+                                // The project ID is not used for pinned mods
+                                "".to_owned(),
+                                ver_id.clone(),
+                            )),
+                            (Some(proj_id), _) => {
+                                Some(ModIdentifier::ModrinthProject(proj_id.clone()))
+                            }
+                            _ => {
+                                eprintln!("Project ID not available");
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec(),
+            conflicts: version
+                .dependencies
+                .into_iter()
+                .filter_map(|d| {
+                    if d.dependency_type == MRDependencyType::Incompatible {
+                        match (d.project_id, d.version_id) {
+                            (_, Some(ver_id)) => {
+                                Some(ModIdentifier::PinnedModrinthProject("".to_owned(), ver_id))
+                            }
+                            (Some(proj_id), _) => Some(ModIdentifier::ModrinthProject(proj_id)),
+                            _ => {
+                                eprintln!("Project ID not available");
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec(),
         },
     )
 }
@@ -123,6 +200,8 @@ pub fn from_modpack_file(file: ModpackModFile) -> DownloadData {
             .clone(),
         output: file.path,
         length: file.file_size,
+        dependencies: Vec::new(),
+        conflicts: Vec::new(),
     }
 }
 
@@ -160,6 +239,8 @@ pub fn from_gh_releases(
                         download_url: asset.browser_download_url,
                         output: asset.name.into(),
                         length: asset.size as usize,
+                        dependencies: Vec::new(),
+                        conflicts: Vec::new(),
                     },
                 )
             })
@@ -172,6 +253,8 @@ pub fn from_gh_asset(asset: GHAsset) -> DownloadData {
         download_url: asset.browser_download_url,
         output: asset.name.into(),
         length: asset.size as usize,
+        dependencies: Vec::new(),
+        conflicts: Vec::new(),
     }
 }
 

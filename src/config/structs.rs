@@ -105,10 +105,6 @@ pub struct Mod {
     pub name: String,
     pub identifier: ModIdentifier,
 
-    /// The specific version of the mod to download
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pin: Option<String>,
-
     /// Custom filters that apply only for this mod
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
@@ -128,24 +124,11 @@ const fn is_false(b: &bool) -> bool {
 pub enum ModIdentifier {
     CurseForgeProject(i32),
     ModrinthProject(String),
-    GitHubRepository((String, String)),
-}
+    GitHubRepository(String, String),
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ModIdentifierRef<'a> {
-    CurseForgeProject(i32),
-    ModrinthProject(&'a str),
-    GitHubRepository((&'a str, &'a str)),
-}
-
-impl ModIdentifier {
-    pub fn as_ref(&self) -> ModIdentifierRef {
-        match self {
-            ModIdentifier::CurseForgeProject(v) => ModIdentifierRef::CurseForgeProject(*v),
-            ModIdentifier::ModrinthProject(v) => ModIdentifierRef::ModrinthProject(v),
-            ModIdentifier::GitHubRepository(v) => ModIdentifierRef::GitHubRepository((&v.0, &v.1)),
-        }
-    }
+    PinnedCurseForgeProject(i32, i32),
+    PinnedModrinthProject(String, String),
+    PinnedGitHubRepository((String, String), i32),
 }
 
 #[derive(Deserialize, Serialize, Debug, Display, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
