@@ -22,6 +22,7 @@ use reqwest::{Client, Url};
 use std::{
     fs::{create_dir_all, rename, OpenOptions},
     io::{BufWriter, Write},
+    mem::take,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -120,10 +121,10 @@ pub fn try_from_cf_file(
     ))
 }
 
-pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
+pub fn from_mr_version(mut version: MRVersion) -> (Metadata, DownloadData) {
     (
         Metadata {
-            title: version.name.clone(),
+            title: take(&mut version.name),
             description: version.changelog.as_ref().cloned().unwrap_or_default(),
             filename: version.get_version_file().filename.clone(),
             channel: match version.version_type {
@@ -137,7 +138,7 @@ pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
                 .filter_map(|s| ModLoader::from_str(s).ok())
                 .collect_vec(),
 
-            game_versions: version.game_versions.clone(),
+            game_versions: take(&mut version.game_versions),
         },
         DownloadData {
             download_url: version.get_version_file().url.clone(),
@@ -145,18 +146,15 @@ pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
             length: version.get_version_file().size,
             dependencies: version
                 .dependencies
-                .iter()
+                .clone()
+                .into_iter()
                 .filter_map(|d| {
                     if d.dependency_type == MRDependencyType::Required {
-                        match (&d.project_id, &d.version_id) {
-                            (_, Some(ver_id)) => Some(ModIdentifier::PinnedModrinthProject(
-                                // The project ID is not used for pinned mods
-                                "".to_owned(),
-                                ver_id.clone(),
-                            )),
-                            (Some(proj_id), _) => {
-                                Some(ModIdentifier::ModrinthProject(proj_id.clone()))
+                        match (d.project_id, d.version_id) {
+                            (Some(proj_id), Some(ver_id)) => {
+                                Some(ModIdentifier::PinnedModrinthProject(proj_id, ver_id))
                             }
+                            (Some(proj_id), None) => Some(ModIdentifier::ModrinthProject(proj_id)),
                             _ => {
                                 eprintln!("Project ID not available");
                                 None
@@ -173,10 +171,10 @@ pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
                 .filter_map(|d| {
                     if d.dependency_type == MRDependencyType::Incompatible {
                         match (d.project_id, d.version_id) {
-                            (_, Some(ver_id)) => {
-                                Some(ModIdentifier::PinnedModrinthProject("".to_owned(), ver_id))
+                            (Some(proj_id), Some(ver_id)) => {
+                                Some(ModIdentifier::PinnedModrinthProject(proj_id, ver_id))
                             }
-                            (Some(proj_id), _) => Some(ModIdentifier::ModrinthProject(proj_id)),
+                            (Some(proj_id), None) => Some(ModIdentifier::ModrinthProject(proj_id)),
                             _ => {
                                 eprintln!("Project ID not available");
                                 None

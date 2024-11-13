@@ -53,14 +53,14 @@ impl Filter {
     /// This function fails if getting version groups fails, or the regex files to parse.
     pub async fn filter(
         &self,
-        mut download_files: impl Iterator<Item = (usize, &Metadata)>,
+        download_files: impl Iterator<Item = (usize, &Metadata)> + Clone,
     ) -> Result<HashSet<usize>> {
         Ok(match self {
             Filter::ModLoaderPrefer(loaders) => loaders
                 .iter()
                 .map(move |l| {
                     download_files
-                        .by_ref()
+                        .clone()
                         .positions(|f| f.loaders.contains(l))
                         .collect_hashset()
                 })

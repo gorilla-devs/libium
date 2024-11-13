@@ -8,7 +8,7 @@ use crate::{
     CURSEFORGE_API, GITHUB_API, MODRINTH_API,
 };
 use serde::Deserialize;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, mem::take, str::FromStr};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -141,13 +141,12 @@ pub async fn add(
         Vec::new()
     };
 
-    let gh_repos =
-        {
-            // Construct GraphQl query using raw strings
-            let mut graphql_query = "{".to_string();
-            for (i, (owner, name)) in gh_ids.iter().enumerate() {
-                graphql_query.push_str(&format!(
-                    "_{i}: repository(owner: \"{owner}\", name: \"{name}\") {{
+    let gh_repos = {
+        // Construct GraphQl query using raw strings
+        let mut graphql_query = "{".to_string();
+        for (i, (owner, name)) in gh_ids.iter().enumerate() {
+            graphql_query.push_str(&format!(
+                "_{i}: repository(owner: \"{owner}\", name: \"{name}\") {{
                     owner {{
                         login
                     }}
@@ -165,80 +164,82 @@ pub async fn add(
                         }}
                     }}
                 }}"
-                ));
+            ));
+        }
+        graphql_query.push('}');
+
+        // Send the query
+        let response: GraphQlResponse = if !gh_ids.is_empty() {
+            GITHUB_API
+                .graphql(&HashMap::from([("query", graphql_query)]))
+                .await?
+        } else {
+            GraphQlResponse {
+                data: HashMap::new(),
+                errors: Vec::new(),
             }
-            graphql_query.push('}');
-
-            // Send the query
-            let response: GraphQlResponse = if !gh_ids.is_empty() {
-                GITHUB_API
-                    .graphql(&HashMap::from([("query", graphql_query)]))
-                    .await?
-            } else {
-                GraphQlResponse {
-                    data: HashMap::new(),
-                    errors: Vec::new(),
-                }
-            };
-
-            errors.extend(response.errors.into_iter().map(|v| {
-                (
-                    {
-                        let id = &gh_ids[v.path[0]
-                            .strip_prefix('_')
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .expect("Unexpected response data")];
-                        format!("{}/{}", id.0, id.1)
-                    },
-                    if v.type_ == "NOT_FOUND" {
-                        Error::DoesNotExist
-                    } else {
-                        Error::GitHubError(v.message)
-                    },
-                )
-            }));
-
-            response
-                .data
-                .into_values()
-                .flatten()
-                .map(|d| {
-                    (
-                        (d.owner.login, d.name),
-                        d.releases
-                            .nodes
-                            .into_iter()
-                            .flat_map(|release| {
-                                release.release_assets.nodes.into_iter().map(move |asset| {
-                                    Metadata {
-                                        filename: asset.name.clone(),
-                                        title: release.name.clone(),
-                                        description: release.description.clone(),
-                                        channel: if release.is_prerelease {
-                                            ReleaseChannel::Beta
-                                        } else {
-                                            ReleaseChannel::Release
-                                        },
-                                        game_versions: asset
-                                            .name
-                                            .trim_end_matches(".jar")
-                                            .split(['-', '_', '+'])
-                                            .map(ToOwned::to_owned)
-                                            .collect_vec(),
-                                        loaders: asset
-                                            .name
-                                            .trim_end_matches(".jar")
-                                            .split(['-', '_', '+'])
-                                            .filter_map(|s| ModLoader::from_str(s).ok())
-                                            .collect_vec(),
-                                    }
-                                })
-                            })
-                            .collect_vec(),
-                    )
-                })
-                .collect_vec()
         };
+
+        errors.extend(response.errors.into_iter().map(|v| {
+            (
+                {
+                    let id = &gh_ids[v.path[0]
+                        .strip_prefix('_')
+                        .and_then(|s| s.parse::<usize>().ok())
+                        .expect("Unexpected response data")];
+                    format!("{}/{}", id.0, id.1)
+                },
+                if v.type_ == "NOT_FOUND" {
+                    Error::DoesNotExist
+                } else {
+                    Error::GitHubError(v.message)
+                },
+            )
+        }));
+
+        response
+            .data
+            .into_values()
+            .flatten()
+            .map(|d| {
+                (
+                    (d.owner.login, d.name),
+                    d.releases
+                        .nodes
+                        .into_iter()
+                        .flat_map(|release| {
+                            release
+                                .release_assets
+                                .nodes
+                                .into_iter()
+                                .map(move |mut asset| Metadata {
+                                    filename: take(&mut asset.name),
+                                    title: release.name.clone(),
+                                    description: release.description.clone(),
+                                    channel: if release.is_prerelease {
+                                        ReleaseChannel::Beta
+                                    } else {
+                                        ReleaseChannel::Release
+                                    },
+                                    game_versions: asset
+                                        .name
+                                        .trim_end_matches(".jar")
+                                        .split(['-', '_', '+'])
+                                        .map(ToOwned::to_owned)
+                                        .collect_vec(),
+                                    loaders: asset
+                                        .name
+                                        .trim_end_matches(".jar")
+                                        .split(['-', '_', '+'])
+                                        .filter_map(|s| ModLoader::from_str(s).ok())
+                                        .collect_vec(),
+                                })
+                        })
+                        .collect_vec(),
+                )
+            })
+            .collect_vec()
+    };
 
     let mut success_names = Vec::new();
 

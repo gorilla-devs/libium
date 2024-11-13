@@ -79,7 +79,10 @@ pub async fn modrinth(config: &Config, project_id: &str) -> Result<Project> {
     // Check if project has already been added
     if config.modpacks.iter().any(|modpack| {
         modpack.name == project.title
-            || ModpackIdentifier::ModrinthModpack(project.id.clone()) == modpack.identifier
+            || matches!(
+                &modpack.identifier,
+                ModpackIdentifier::ModrinthModpack(proj_id) if proj_id == &project.id
+            )
     }) {
         Err(Error::AlreadyAdded)
 
