@@ -209,12 +209,11 @@ pub fn from_gh_releases(
     releases
         .into_iter()
         .flat_map(|release| {
-            release.assets.into_iter().map(move |asset| {
+            release.assets.into_iter().map(move |mut asset| {
                 (
                     Metadata {
                         title: release.name.clone().unwrap_or_default(),
                         description: release.body.clone().unwrap_or_default(),
-                        filename: asset.name.clone(),
                         channel: if release.prerelease {
                             ReleaseChannel::Beta
                         } else {
@@ -224,6 +223,7 @@ pub fn from_gh_releases(
                             .name
                             .trim_end_matches(".jar")
                             .split(['-', '_', '+'])
+                            .map(|s| s.trim_start_matches("mc"))
                             .map(ToOwned::to_owned)
                             .collect_vec(),
                         loaders: asset
@@ -232,6 +232,7 @@ pub fn from_gh_releases(
                             .split(['-', '_', '+'])
                             .filter_map(|s| ModLoader::from_str(s).ok())
                             .collect_vec(),
+                        filename: take(&mut asset.name),
                     },
                     DownloadData {
                         download_url: asset.browser_download_url,

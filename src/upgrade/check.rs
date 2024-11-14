@@ -72,13 +72,7 @@ impl Filter {
                 .collect_hashset(),
 
             Filter::GameVersionStrict(versions) => download_files
-                .positions(|f| {
-                    versions.iter().any(|vc| {
-                        f.game_versions
-                            .iter()
-                            .any(|vi| vi.trim_start_matches("mc") == vc)
-                    })
-                })
+                .positions(|f| versions.iter().any(|vc| f.game_versions.contains(vc)))
                 .collect_hashset(),
 
             Filter::GameVersionMinor(versions) => {
@@ -90,13 +84,7 @@ impl Filter {
                 }
 
                 download_files
-                    .positions(|f| {
-                        final_versions.iter().any(|vc| {
-                            f.game_versions
-                                .iter()
-                                .any(|vi| vi.trim_start_matches("mc") == vc)
-                        })
-                    })
+                    .positions(|f| final_versions.iter().any(|vc| f.game_versions.contains(vc)))
                     .collect_hashset()
             }
 

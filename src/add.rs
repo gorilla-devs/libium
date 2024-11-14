@@ -213,7 +213,6 @@ pub async fn add(
                                 .nodes
                                 .into_iter()
                                 .map(move |mut asset| Metadata {
-                                    filename: take(&mut asset.name),
                                     title: release.name.clone(),
                                     description: release.description.clone(),
                                     channel: if release.is_prerelease {
@@ -225,6 +224,7 @@ pub async fn add(
                                         .name
                                         .trim_end_matches(".jar")
                                         .split(['-', '_', '+'])
+                                        .map(|s| s.trim_start_matches("mc"))
                                         .map(ToOwned::to_owned)
                                         .collect_vec(),
                                     loaders: asset
@@ -233,6 +233,7 @@ pub async fn add(
                                         .split(['-', '_', '+'])
                                         .filter_map(|s| ModLoader::from_str(s).ok())
                                         .collect_vec(),
+                                    filename: take(&mut asset.name),
                                 })
                         })
                         .collect_vec(),
