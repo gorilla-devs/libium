@@ -114,6 +114,8 @@ pub struct Mod {
     #[serde(skip_serializing_if = "is_false")]
     #[serde(default)]
     pub override_filters: bool,
+
+    // TODO: keep/warn users with check overrides
 }
 
 const fn is_false(b: &bool) -> bool {
