@@ -22,7 +22,6 @@ use reqwest::{Client, Url};
 use std::{
     fs::{create_dir_all, rename, OpenOptions},
     io::{BufWriter, Write},
-    mem::take,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -121,10 +120,10 @@ pub fn try_from_cf_file(
     ))
 }
 
-pub fn from_mr_version(mut version: MRVersion) -> (Metadata, DownloadData) {
+pub fn from_mr_version(version: MRVersion) -> (Metadata, DownloadData) {
     (
         Metadata {
-            title: take(&mut version.name),
+            title: version.name.clone(),
             description: version.changelog.as_ref().cloned().unwrap_or_default(),
             filename: version.get_version_file().filename.clone(),
             channel: match version.version_type {
@@ -138,7 +137,7 @@ pub fn from_mr_version(mut version: MRVersion) -> (Metadata, DownloadData) {
                 .filter_map(|s| ModLoader::from_str(s).ok())
                 .collect_vec(),
 
-            game_versions: take(&mut version.game_versions),
+            game_versions: version.game_versions.clone(),
         },
         DownloadData {
             download_url: version.get_version_file().url.clone(),
@@ -209,7 +208,7 @@ pub fn from_gh_releases(
     releases
         .into_iter()
         .flat_map(|release| {
-            release.assets.into_iter().map(move |mut asset| {
+            release.assets.into_iter().map(move |asset| {
                 (
                     Metadata {
                         title: release.name.clone().unwrap_or_default(),
@@ -232,7 +231,7 @@ pub fn from_gh_releases(
                             .split(['-', '_', '+'])
                             .filter_map(|s| ModLoader::from_str(s).ok())
                             .collect_vec(),
-                        filename: take(&mut asset.name),
+                        filename: asset.name.clone(),
                     },
                     DownloadData {
                         download_url: asset.browser_download_url,

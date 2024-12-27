@@ -2,8 +2,8 @@ pub mod filters;
 pub mod structs;
 
 use std::{
-    fs::{create_dir_all, File, OpenOptions},
-    io::{Result, Seek, Write},
+    fs::{create_dir_all, File},
+    io::{BufReader, Result},
     path::{Path, PathBuf},
     sync::LazyLock,
 };
@@ -15,45 +15,27 @@ pub static DEFAULT_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .join("config.json")
 });
 
-fn open_config_file(path: &Path) -> Result<File> {
-    OpenOptions::new()
-        .read(true)
-        .write(true)
-        .truncate(false)
-        .create(true)
-        .open(path)
-}
-
-/// Open the config file at `path`
-///
-/// If it doesn't exist, a config file with an empty config will be created and opened.
-pub fn get_file(path: &Path) -> Result<File> {
-    if path.exists() {
-        open_config_file(path)
-    } else {
-        create_dir_all(path.parent().expect("Invalid config directory"))?;
-        let mut file = open_config_file(path)?;
-        write_file(&mut file, &structs::Config::default())?;
-        Ok(file)
+/// Open the config file at `path` and deserialise it into a config struct
+pub fn read_config(path: impl AsRef<Path>) -> Result<structs::Config> {
+    if !path.as_ref().exists() {
+        create_dir_all(path.as_ref().parent().expect("Invalid config directory"))?;
+        write_config(&path, &structs::Config::default())?;
     }
-}
 
-/// Deserialise the given `input` into a config struct
-pub fn deserialise(input: &str) -> serde_json::error::Result<structs::Config> {
-    let mut config: structs::Config = serde_json::from_str(input)?;
+    let config_file = BufReader::new(File::open(&path)?);
+    let mut config: structs::Config = serde_json::from_reader(config_file)?;
+
     config
         .profiles
         .iter_mut()
         .for_each(structs::Profile::backwards_compat);
+
     Ok(config)
 }
 
-/// Serialise `config` and write it to `config_file`
-pub fn write_file(config_file: &mut File, config: &structs::Config) -> Result<()> {
-    let serialised = serde_json::to_string_pretty(config)?;
-    config_file.set_len(0)?; // Clear the file contents
-    config_file.rewind()?; // Set the cursor to the beginning
-    config_file.write_all(serialised.as_bytes())?;
-    config_file.rewind()?; // So that subsequent reads work properly
+/// Serialise `config` and write it to the config file at `path`
+pub fn write_config(path: impl AsRef<Path>, config: &structs::Config) -> Result<()> {
+    let config_file = File::create(path)?;
+    serde_json::to_writer_pretty(config_file, config)?;
     Ok(())
 }

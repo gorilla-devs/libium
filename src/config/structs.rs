@@ -5,7 +5,6 @@ use std::{path::PathBuf, str::FromStr};
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Config {
-    /// The index of the active profile
     #[serde(skip_serializing_if = "is_zero")]
     #[serde(default)]
     pub active_profile: usize,
@@ -14,7 +13,6 @@ pub struct Config {
     #[serde(default)]
     pub profiles: Vec<Profile>,
 
-    /// The index of the active modpack
     #[serde(skip_serializing_if = "is_zero")]
     #[serde(default)]
     pub active_modpack: usize,
@@ -97,6 +95,30 @@ impl Profile {
                 Filter::GameVersionStrict(vec![version]),
             ];
         }
+
+        for mod_ in &self.mods {
+            if mod_.check_game_version.is_some() || mod_.check_mod_loader.is_some() {
+                eprintln!("WARNING: Check overrides found for {}", mod_.name);
+                eprintln!("Migrate to the new filter system if necessary!");
+            }
+        }
+    }
+
+    pub fn push_mod(
+        &mut self,
+        name: String,
+        identifier: ModIdentifier,
+        override_filters: bool,
+        filters: Vec<Filter>,
+    ) {
+        self.mods.push(Mod {
+            name,
+            identifier,
+            filters,
+            override_filters,
+            check_game_version: None,
+            check_mod_loader: None,
+        })
     }
 }
 
@@ -115,7 +137,29 @@ pub struct Mod {
     #[serde(default)]
     pub override_filters: bool,
 
-    // TODO: keep/warn users with check overrides
+    // Kept for backwards compatibility reasons
+    #[serde(skip_serializing)]
+    check_game_version: Option<bool>,
+    #[serde(skip_serializing)]
+    check_mod_loader: Option<bool>,
+}
+
+impl Mod {
+    pub fn new(
+        name: String,
+        identifier: ModIdentifier,
+        filters: Vec<Filter>,
+        override_filters: bool,
+    ) -> Self {
+        Self {
+            name,
+            identifier,
+            filters,
+            override_filters,
+            check_game_version: None,
+            check_mod_loader: None,
+        }
+    }
 }
 
 const fn is_false(b: &bool) -> bool {
