@@ -108,11 +108,13 @@ impl Profile {
         &mut self,
         name: String,
         identifier: ModIdentifier,
+        slug: String,
         override_filters: bool,
         filters: Vec<Filter>,
     ) {
         self.mods.push(Mod {
             name,
+            slug: Some(slug),
             identifier,
             filters,
             override_filters,
@@ -126,6 +128,11 @@ impl Profile {
 pub struct Mod {
     pub name: String,
     pub identifier: ModIdentifier,
+
+    // Is an `Option` for backwards compatibility reasons,
+    // since the slug field didn't exist in older ferium versions
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
 
     /// Custom filters that apply only for this mod
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -153,6 +160,7 @@ impl Mod {
     ) -> Self {
         Self {
             name,
+            slug: None,
             identifier,
             filters,
             override_filters,

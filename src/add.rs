@@ -351,6 +351,7 @@ pub async fn github(
     profile.push_mod(
         id.1.as_ref().trim().to_string(),
         ModIdentifier::GitHubRepository(id.0.to_string(), id.1.to_string()),
+        id.1.as_ref().trim().to_string(),
         override_profile,
         filters,
     );
@@ -424,6 +425,7 @@ pub async fn modrinth(
         profile.push_mod(
             project.title.trim().to_owned(),
             ModIdentifier::ModrinthProject(project.id.clone()),
+            project.slug.to_owned(),
             override_profile,
             filters,
         );
@@ -503,6 +505,7 @@ pub async fn curseforge(
         profile.push_mod(
             project.name.trim().to_string(),
             ModIdentifier::CurseForgeProject(project.id),
+            project.slug.clone(),
             override_profile,
             filters,
         );
